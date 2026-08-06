@@ -1,21 +1,21 @@
 <template>
   <div class="login-container">
-    <h2>Вход в HomeStorage</h2>
+    <h2>Р’С…РѕРґ РІ HomeStorage</h2>
     <form @submit.prevent="handleLogin">
       <div class="form-group">
         <label>Email</label>
         <input v-model="email" type="email" required placeholder="test@example.com" />
       </div>
       <div class="form-group">
-        <label>Пароль</label>
+        <label>РџР°СЂРѕР»СЊ</label>
         <input v-model="password" type="password" required placeholder="password123" />
       </div>
       <button type="submit" :disabled="loading">
-        {{ loading ? 'Вход...' : 'Войти' }}
+        {{ loading ? 'Р’С…РѕРґ...' : 'Р’РѕР№С‚Рё' }}
       </button>
       <p v-if="error" class="error">{{ error }}</p>
       <p class="register-link">
-        Нет аккаунта? <a href="/register">Зарегистрироваться</a>
+        РќРµС‚ Р°РєРєР°СѓРЅС‚Р°? <a href="/register">Р—Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊСЃСЏ</a>
       </p>
     </form>
   </div>
@@ -44,7 +44,7 @@ const handleLogin = async () => {
     localStorage.setItem('refreshToken', response.data.refreshToken);
     router.push('/containers');
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка входа. Проверьте логин и пароль.';
+    error.value = err.response?.data?.message || 'РћС€РёР±РєР° РІС…РѕРґР°. РџСЂРѕРІРµСЂСЊС‚Рµ Р»РѕРіРёРЅ Рё РїР°СЂРѕР»СЊ.';
   } finally {
     loading.value = false;
   }

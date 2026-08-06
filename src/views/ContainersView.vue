@@ -1,14 +1,14 @@
 <template>
   <div class="containers-page">
     <div class="header">
-      <h2>Мои контейнеры</h2>
-      <button class="add-btn">+ Добавить контейнер</button>
+      <h2>РњРѕРё РєРѕРЅС‚РµР№РЅРµСЂС‹</h2>
+      <button class="add-btn">+ Р”РѕР±Р°РІРёС‚СЊ РєРѕРЅС‚РµР№РЅРµСЂ</button>
     </div>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">Р—Р°РіСЂСѓР·РєР°...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="containers.length === 0" class="empty">
-      У вас пока нет контейнеров. Создайте первый!
+      РЈ РІР°СЃ РїРѕРєР° РЅРµС‚ РєРѕРЅС‚РµР№РЅРµСЂРѕРІ. РЎРѕР·РґР°Р№С‚Рµ РїРµСЂРІС‹Р№!
     </div>
     <ul v-else class="container-list">
       <li v-for="container in containers" :key="container.id" class="container-item">
@@ -19,7 +19,7 @@
             {{ container.accessLevel }}
           </span>
         </div>
-        <button class="open-btn">Открыть</button>
+        <button class="open-btn">РћС‚РєСЂС‹С‚СЊ</button>
       </li>
     </ul>
   </div>
@@ -39,7 +39,7 @@ const loadContainers = async () => {
     const response = await containerApi.getRootContainers();
     containers.value = response.data;
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка загрузки контейнеров';
+    error.value = err.response?.data?.message || 'РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РєРѕРЅС‚РµР№РЅРµСЂРѕРІ';
   } finally {
     loading.value = false;
   }
