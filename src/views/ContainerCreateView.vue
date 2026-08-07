@@ -1,6 +1,6 @@
 <template>
   <div class="container-create">
-    <h2>Создание контейнера</h2>
+    <h2>Создание места хранения</h2>
     <form @submit.prevent="handleSubmit" class="form">
       <!-- Название -->
       <div class="form-group">
@@ -13,7 +13,7 @@
         />
       </div>
 
-      <!-- Тип контейнера -->
+      <!-- Тип места хранения -->
       <div class="form-group">
         <label>Тип *</label>
         <select v-model="form.type" required>
@@ -32,14 +32,14 @@
         <label>Описание</label>
         <textarea
           v-model="form.description"
-          placeholder="Дополнительная информация о контейнере..."
+          placeholder="Дополнительная информация..."
           rows="3"
         />
       </div>
 
-      <!-- Родительский контейнер (необязательно) -->
+      <!-- Родительское место хранения (необязательно) -->
       <div class="form-group">
-        <label>Родительский контейнер</label>
+        <label>Родительский место хранения</label>
         <select v-model="form.parentId">
           <option :value="null">Без родителя (корневой)</option>
           <option
@@ -50,7 +50,7 @@
             {{ container.name }} ({{ container.type }})
           </option>
         </select>
-        <small>Если контейнер должен быть внутри другого — выберите его</small>
+        <small>Если место хранения должно быть внутри другого — выберите его</small>
       </div>
 
       <!-- Уровень доступа -->
@@ -63,7 +63,7 @@
         </select>
       </div>
 
-      <!-- Группа (если контейнер групповой) -->
+      <!-- Группа (если место хранения групповое) -->
       <div v-if="form.accessLevel !== 'PRIVATE'" class="form-group">
         <label>Группа</label>
         <select v-model="form.groupId">
@@ -82,7 +82,7 @@
       <!-- Кнопки -->
       <div class="form-actions">
         <button type="submit" :disabled="loading" class="btn-primary">
-          {{ loading ? 'Создание...' : 'Создать контейнер' }}
+          {{ loading ? 'Создание...' : 'Создать место хранения' }}
         </button>
         <button type="button" @click="goBack" class="btn-secondary">
           Отмена
@@ -142,7 +142,7 @@ const loadFormData = async () => {
 // Отправка формы
 const handleSubmit = async () => {
   if (!form.value.name || !form.value.type) {
-    error.value = 'Название и тип контейнера обязательны';
+    error.value = 'Название и тип места обязательны';
     return;
   }
 
@@ -159,10 +159,10 @@ const handleSubmit = async () => {
 
     await containerApi.createContainer(payload);
 
-    // Успех — переходим на список контейнеров
+    // Успех — переходим на список мест хранения
     router.push('/containers');
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка создания контейнера';
+    error.value = err.response?.data?.message || 'Ошибка создания места хранения';
   } finally {
     loading.value = false;
   }

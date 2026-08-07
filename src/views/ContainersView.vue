@@ -1,14 +1,14 @@
 <template>
   <div class="containers-page">
     <div class="header">
-      <h2>Мои контейнеры</h2>
-      <button class="add-btn" @click="goToCreate">+ Добавить контейнер</button>
+      <h2>Мои места хранения</h2>
+      <button class="add-btn" @click="goToCreate">+ Добавить место</button>
     </div>
 
     <div v-if="loading" class="loading">Загрузка...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="containers.length === 0" class="empty">
-      У вас пока нет контейнеров. Создайте первый!
+      У вас пока нет мест хранения. Создайте первое!
     </div>
     <ul v-else class="container-list">
       <li v-for="container in containers" :key="container.id" class="container-item">
@@ -44,7 +44,7 @@ const loadContainers = async () => {
     const response = await containerApi.getRootContainers();
     containers.value = response.data;
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка загрузки контейнеров';
+    error.value = err.response?.data?.message || 'Ошибка загрузки мест хранения';
   } finally {
     loading.value = false;
   }

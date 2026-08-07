@@ -95,7 +95,7 @@ const handleRegister = async () => {
     localStorage.setItem('accessToken', response.data.accessToken);
     localStorage.setItem('refreshToken', response.data.refreshToken);
 
-    // Перенаправляем на страницу с контейнерами
+    // Перенаправляем на страницу с местами хранения
     router.push('/containers');
   } catch (err: any) {
     // Обработка ошибок от сервера
