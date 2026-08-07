@@ -5,7 +5,18 @@
 </template>
 
 <script setup lang="ts">
-// Ничего не нужно, роутер сам подставит страницу
+import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+onMounted(() => {
+    const token = localStorage.getItem('accessToken');
+    const currentPath = router.currentRoute.value.path;
+    if (!token && currentPath !== '/login' && currentPath !== '/register') {
+        router.push('/login');
+    }
+});
 </script>
 
 <style>

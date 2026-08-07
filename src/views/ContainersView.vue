@@ -2,7 +2,7 @@
   <div class="containers-page">
     <div class="header">
       <h2>Мои контейнеры</h2>
-      <button class="add-btn">+ Добавить контейнер</button>
+      <button class="add-btn" @click="goToCreate">+ Добавить контейнер</button>
     </div>
 
     <div v-if="loading" class="loading">Загрузка...</div>
@@ -26,10 +26,15 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
 import { ref, onMounted } from 'vue';
 import { containerApi, type Container } from '@/api/containerApi';
 
+const router = useRouter();
 const containers = ref<Container[]>([]);
+const goToCreate = () => {
+  router.push('/containers/create');
+};
 const loading = ref(true);
 const error = ref('');
 
