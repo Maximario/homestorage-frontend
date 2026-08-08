@@ -16,6 +16,9 @@
         </span>
       </div>
       <div class="actions">
+        <button v-if="container?.parentId" class="btn-secondary" @click="goToContainer(container?.parentId)">
+          ← Назад
+        </button>
         <button class="btn-secondary" @click="goToEdit" v-if="container">
           ✏️ Редактировать
         </button>
@@ -80,11 +83,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Кнопка назад -->
-    <div class="back">
-      <button class="btn-secondary" @click="goBack">← Назад к списку</button>
     </div>
   </div>
 </template>
