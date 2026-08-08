@@ -14,9 +14,9 @@
       <li v-for="container in containers" :key="container.id" class="container-item">
         <div class="container-info">
           <span class="name">{{ container.name }}</span>
-          <span class="type">[{{ container.type }}]</span>
+          <span class="type">[{{ translateType(container.type) }}]</span>
           <span class="access" :class="container.accessLevel.toLowerCase()">
-            {{ container.accessLevel }}
+            {{ translateAccess(container.accessLevel) }}
           </span>
         </div>
         <button class="open-btn" @click="goToContainer(container.id)">
@@ -31,6 +31,7 @@
 import { useRouter } from 'vue-router';
 import { ref, onMounted } from 'vue';
 import { containerApi, type Container } from '@/api/containerApi';
+import { translateType, translateAccess } from "@/utils/translations";
 
 const router = useRouter();
 const containers = ref<Container[]>([]);
