@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LoginView from '@/views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
+import ContainerView from '@/views/ContainerView.vue';
 import ContainersView from '@/views/ContainersView.vue';
 import ContainerCreateView from '@/views/ContainerCreateView.vue';
 
@@ -10,6 +11,8 @@ const routes = [
     { path: '/register', component: RegisterView },
     { path: '/containers', component: ContainersView, meta: { requiresAuth: true } },
     { path: '/containers/create', name: 'ContainerCreate', component: ContainerCreateView, meta: { requiresAuth: true } },
+    { path: '/containers/:id', name: 'ContainerView', component: ContainerView, meta: { requiresAuth: true },
+    },
     { path: '/', redirect: '/containers' },
 ];
 

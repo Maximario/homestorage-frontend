@@ -19,7 +19,9 @@
             {{ container.accessLevel }}
           </span>
         </div>
-        <button class="open-btn">Открыть</button>
+        <button class="open-btn" @click="goToContainer(container.id)">
+          Открыть
+        </button>
       </li>
     </ul>
   </div>
@@ -34,6 +36,9 @@ const router = useRouter();
 const containers = ref<Container[]>([]);
 const goToCreate = () => {
   router.push('/containers/create');
+};
+const goToContainer = (id: string) => {
+  router.push(`/containers/${id}`);
 };
 const loading = ref(true);
 const error = ref('');

@@ -1,21 +1,48 @@
 // utils/translations.ts
-export const translateType = (type: string): string => {
+export const translateType = (type?: string) => {
     const map: Record<string, string> = {
-        BUILDING: 'Здание',
-        ROOM: 'Комната',
-        FURNITURE: 'Мебель',
-        SHELF: 'Полка',
-        BOX: 'Коробка',
-        DRAWER: 'Ящик',
+        BUILDING: 'Р—РґР°РЅРёРµ',
+        ROOM: 'РљРѕРјРЅР°С‚Р°',
+        FURNITURE: 'РњРµР±РµР»СЊ',
+        SHELF: 'РџРѕР»РєР°',
+        BOX: 'РљРѕСЂРѕР±РєР°',
+        DRAWER: 'РЇС‰РёРє',
     };
-    return map[type] || type;
+    return type ? map[type] || type : '';
 };
 
-export const translateAccess = (access: string): string => {
+export const translateAccess = (access?: string) => {
     const map: Record<string, string> = {
-        PRIVATE: 'Личное',
-        GROUP_READ: 'Доступно для чтения',
-        GROUP_WRITE: 'Доступно для редактирования',
+        PRIVATE: 'Р›РёС‡РЅРѕРµ',
+        GROUP_READ: 'Р”РѕСЃС‚СѓРїРЅРѕ РґР»СЏ С‡С‚РµРЅРёСЏ',
+        GROUP_WRITE: 'Р”РѕСЃС‚СѓРїРЅРѕ РґР»СЏ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ',
     };
-    return map[access] || access;
+    return access ? map[access] || access : '';
+};
+
+export const translateCategory = (category?: string) => {
+    const map: Record<string, string> = {
+        CLOTHES: 'РћРґРµР¶РґР°',
+        TOOLS: 'РРЅСЃС‚СЂСѓРјРµРЅС‚С‹',
+        BOOKS: 'РљРЅРёРіРё',
+        DOCUMENTS: 'Р”РѕРєСѓРјРµРЅС‚С‹',
+        ELECTRONICS: 'Р­Р»РµРєС‚СЂРѕРЅРёРєР°',
+        FOOD: 'РџСЂРѕРґСѓРєС‚С‹',
+        MEDICINES: 'Р›РµРєР°СЂСЃС‚РІР°',
+        SPORTS: 'РЎРїРѕСЂС‚',
+        OTHER: 'Р”СЂСѓРіРѕРµ',
+    };
+    return category ? map[category] || category : '';
+};
+
+export const getTypeIcon = (type?: string) => {
+    const map: Record<string, string> = {
+        BUILDING: 'рџЏў',
+        ROOM: 'рџљЄ',
+        FURNITURE: 'рџЄ‘',
+        SHELF: 'рџ“љ',
+        BOX: 'рџ“¦',
+        DRAWER: 'рџ—„пёЏ',
+    };
+    return type ? map[type] || 'рџ“Ѓ' : 'рџ“Ѓ';
 };
