@@ -2,6 +2,7 @@
 export const translateType = (type?: string) => {
     const map: Record<string, string> = {
         BUILDING: 'Здание',
+        APARTMENT: 'Квартира, офис',
         ROOM: 'Комната',
         FURNITURE: 'Мебель',
         SHELF: 'Полка',
@@ -38,6 +39,7 @@ export const translateCategory = (category?: string) => {
 export const getTypeIcon = (type?: string) => {
     const map: Record<string, string> = {
         BUILDING: '🏢',
+        APARTMENT: '🏠',
         ROOM: '🚪',
         FURNITURE: '🪑',
         SHELF: '📚',

@@ -2,7 +2,7 @@ export interface Container {
     id: string;
     name: string;
     description?: string;
-    type: 'BUILDING' | 'ROOM' | 'FURNITURE' | 'SHELF' | 'BOX' | 'DRAWER';
+    type: ContainerType;
     parentId?: string | null;
     groupId?: string | null;
     accessLevel: 'PRIVATE' | 'GROUP_READ' | 'GROUP_WRITE';
@@ -19,3 +19,12 @@ export interface ContainerRequest {
     groupId?: string | null;
     accessLevel?: Container['accessLevel'];
 }
+
+export type ContainerType =
+    | 'BUILDING'
+    | 'APARTMENT'
+    | 'ROOM'
+    | 'FURNITURE'
+    | 'SHELF'
+    | 'BOX'
+    | 'DRAWER';

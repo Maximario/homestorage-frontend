@@ -19,6 +19,7 @@
         <select v-model="form.type" required>
           <option value="">Выберите тип...</option>
           <option value="BUILDING">Здание</option>
+          <option value="APARTMENT">Квартира</option>
           <option value="ROOM">Комната</option>
           <option value="FURNITURE">Мебель</option>
           <option value="SHELF">Полка</option>
