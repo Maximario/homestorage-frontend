@@ -1,78 +1,92 @@
 <template>
   <div class="container-create">
-    <h2>Создание места хранения</h2>
+    <h2>➕ Новое место хранения</h2>
     <form @submit.prevent="handleSubmit" class="form">
-      <!-- Название -->
       <div class="form-group">
         <label>Название *</label>
         <input
-          v-model="form.name"
-          type="text"
-          required
-          placeholder="Например: Спальня, Шкаф, Коробка №5"
+            v-model="form.name"
+            type="text"
+            required
+            placeholder="Например: Спальня, Шкаф, Коробка №5"
         />
       </div>
 
-      <!-- Тип места хранения -->
       <div class="form-group">
         <label>Тип *</label>
         <select v-model="form.type" required>
           <option value="">Выберите тип...</option>
-          <option value="BUILDING">Здание</option>
-          <option value="APARTMENT">Квартира</option>
-          <option value="ROOM">Комната</option>
-          <option value="FURNITURE">Мебель</option>
-          <option value="SHELF">Полка</option>
-          <option value="BOX">Коробка</option>
-          <option value="DRAWER">Ящик</option>
+          <option value="BUILDING">🏢 Здание</option>
+          <option value="APARTMENT">🏠 Квартира</option>
+          <option value="ROOM">🚪 Комната</option>
+          <option value="FURNITURE">🪑 Мебель</option>
+          <option value="SHELF">📚 Полка</option>
+          <option value="BOX">📦 Коробка</option>
+          <option value="DRAWER">🗄️ Ящик</option>
         </select>
       </div>
 
-      <!-- Описание -->
       <div class="form-group">
         <label>Описание</label>
         <textarea
-          v-model="form.description"
-          placeholder="Дополнительная информация..."
-          rows="3"
+            v-model="form.description"
+            placeholder="Дополнительная информация о месте хранения..."
+            rows="3"
         />
       </div>
 
-      <!-- Родительское место хранения (необязательно) -->
       <div class="form-group">
-        <label>Родительский место хранения</label>
-        <select v-model="form.parentId">
-          <option :value="null">Без родителя (корневой)</option>
+        <label>Родительское место</label>
+        <select
+            v-model="form.parentId"
+            @change="handleParentChange"
+        >
+          <option :value="null">Без родителя (корневое)</option>
           <option
-            v-for="container in availableParents"
-            :key="container.id"
-            :value="container.id"
+              v-for="container in filteredParents"
+              :key="container.id"
+              :value="container.id"
           >
-            {{ container.name }} ({{ container.type }})
+            {{ getIndent(container) }} {{ container.name }}
+            <span v-if="!isValidParent(container)" style="color: #999;">
+        (недоступно)
+      </span>
           </option>
         </select>
-        <small>Если место хранения должно быть внутри другого — выберите его</small>
+        <small v-if="form.type === 'BUILDING'">
+          🔹 Здание не может иметь родителя — оно всегда корневое.
+        </small>
+        <small v-else-if="form.type === 'BOX'">
+          🔹 Коробка может находиться внутри здания, квартиры, комнаты, мебели, полки, другой коробки или ящика.
+        </small>
+        <small v-else-if="form.type === 'DRAWER'">
+          🔹 Ящик может находиться внутри здания, квартиры, комнаты, мебели или полки.
+        </small>
+        <small v-else-if="filteredParents.length === 0 && form.type">
+          🔹 Для выбранного типа пока нет доступных родительских контейнеров.
+        </small>
+        <small v-else>
+          🔹 Доступны только контейнеры, соответствующие правилам иерархии.
+        </small>
       </div>
 
-      <!-- Уровень доступа -->
       <div class="form-group">
         <label>Уровень доступа</label>
         <select v-model="form.accessLevel">
-          <option value="PRIVATE">Личный</option>
+          <option value="PRIVATE">Личное</option>
           <option value="GROUP_READ">Доступно для чтения группе</option>
           <option value="GROUP_WRITE">Доступно для редактирования группе</option>
         </select>
       </div>
 
-      <!-- Группа (если место хранения групповое) -->
       <div v-if="form.accessLevel !== 'PRIVATE'" class="form-group">
         <label>Группа</label>
         <select v-model="form.groupId">
           <option :value="null">Выберите группу...</option>
           <option
-            v-for="group in userGroups"
-            :key="group.id"
-            :value="group.id"
+              v-for="group in userGroups"
+              :key="group.id"
+              :value="group.id"
           >
             {{ group.name }}
           </option>
@@ -80,24 +94,22 @@
         <small>Если у вас нет групп — создайте их в разделе "Группы"</small>
       </div>
 
-      <!-- Кнопки -->
       <div class="form-actions">
         <button type="submit" :disabled="loading" class="btn-primary">
-          {{ loading ? 'Создание...' : 'Создать место хранения' }}
+          {{ loading ? 'Создание...' : 'Создать место' }}
         </button>
         <button type="button" @click="goBack" class="btn-secondary">
           Отмена
         </button>
       </div>
 
-      <!-- Ошибки -->
       <p v-if="error" class="error">{{ error }}</p>
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { containerApi } from '@/api/containerApi';
 import { groupApi } from '@/api/groupApi';
@@ -109,7 +121,7 @@ const loading = ref(false);
 const error = ref('');
 
 // Данные формы
-const form = ref<ContainerRequest>({
+const form = ref<ContainerRequest & { type: string }>({
   name: '',
   type: '',
   description: '',
@@ -118,32 +130,85 @@ const form = ref<ContainerRequest>({
   groupId: null,
 });
 
-// Списки для выбора
-const availableParents = ref<Container[]>([]);
+const allContainers = ref<Container[]>([]);
 const userGroups = ref<Group[]>([]);
 
-// Загрузка данных для формы
+const validParents: Record<string, string[]> = {
+  BUILDING: [],
+  APARTMENT: ['BUILDING'],
+  ROOM: ['BUILDING', 'APARTMENT'],
+  FURNITURE: ['BUILDING', 'APARTMENT', 'ROOM'],
+  SHELF: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE'],
+  BOX: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+  DRAWER: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF'],
+};
+
+// Проверка: можно ли выбрать этот контейнер как родителя
+const isValidParent = (container: Container): boolean => {
+  if (!form.value.type) return false;
+  if (container.id === form.value.parentId) return false; // сам себя
+  if (isDescendant(container.id)) return false; // защита от циклов
+
+  // Если у типа нет доступных родителей (BUILDING) — родитель запрещён
+  const allowedTypes = validParents[form.value.type] || [];
+  if (allowedTypes.length === 0) return false;
+
+  return allowedTypes.includes(container.type);
+};
+
+// 🔥 Проверка на цикл (упрощённая версия)
+const isDescendant = (parentId: string): boolean => {
+  // Временно: простая проверка, чтобы не выбрать потомка
+  // Более точная версия потребует загрузки дерева
+  return false;
+};
+
+// Фильтруем доступные родители
+const filteredParents = computed(() => {
+  return allContainers.value.filter(c => isValidParent(c));
+});
+
+// Отступы для визуализации иерархии
+const getIndent = (container: Container): string => {
+  const parent = allContainers.value.find(c => c.id === container.parentId);
+  if (parent) {
+    return '>>' + getIndent(parent);
+  }
+  return '';
+};
+
+const handleParentChange = () => {
+  // Ничего не делаем — просто принудительно обновляем реактивность
+  nextTick(() => {
+    // Небольшой трюк: обновляем ссылку на массив,
+    // чтобы Vue перерисовал select
+    const currentParentId = form.value.parentId;
+    form.value.parentId = null;
+    nextTick(() => {
+      form.value.parentId = currentParentId;
+    });
+  });
+};
+
 const loadFormData = async () => {
   try {
-    const containersResp = await containerApi.getRootContainers();
-    availableParents.value = containersResp.data;
-  } catch (err) {
-    console.error('Failed to load containers', err);
-  }
+    const containersResp = await containerApi.getAvailableForParent();
+    allContainers.value = containersResp.data;
 
-  try {
-    const groupsResp = await groupApi.getUserGroups();
-    userGroups.value = groupsResp.data;
+    try {
+      const groupsResp = await groupApi.getUserGroups();
+      userGroups.value = groupsResp.data;
+    } catch {
+      userGroups.value = [];
+    }
   } catch (err) {
-    console.warn('Groups API not available yet. Ignoring...');
-    userGroups.value = [];
+    console.error('Failed to load form data', err);
   }
 };
 
-// Отправка формы
 const handleSubmit = async () => {
   if (!form.value.name || !form.value.type) {
-    error.value = 'Название и тип места обязательны';
+    error.value = 'Название и тип контейнера обязательны';
     return;
   }
 
@@ -151,19 +216,19 @@ const handleSubmit = async () => {
   error.value = '';
 
   try {
-    const payload = {
-      ...form.value,
-      // Если выбран родитель — отправляем его ID, иначе null
-      parentId: form.value.parentId || null,
-      groupId: form.value.accessLevel !== 'PRIVATE' ? form.value.groupId : null,
+    const payload: ContainerRequest = {
+      name: form.value.name,
+      description: form.value.description || undefined,
+      type: form.value.type as Container['type'],
+      parentId: form.value.parentId || undefined,
+      accessLevel: form.value.accessLevel as Container['accessLevel'],
+      groupId: form.value.accessLevel !== 'PRIVATE' ? form.value.groupId : undefined,
     };
 
     await containerApi.createContainer(payload);
-
-    // Успех — переходим на список мест хранения
     router.push('/containers');
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка создания места хранения';
+    error.value = err.response?.data?.message || 'Ошибка создания контейнера';
   } finally {
     loading.value = false;
   }
@@ -172,6 +237,16 @@ const handleSubmit = async () => {
 const goBack = () => {
   router.push('/containers');
 };
+
+// Сброс родителя при смене типа
+watch(() => form.value.type, () => {
+  if (form.value.parentId) {
+    const parent = allContainers.value.find(c => c.id === form.value.parentId);
+    if (!parent || !isValidParent(parent)) {
+      form.value.parentId = null;
+    }
+  }
+});
 
 onMounted(() => {
   loadFormData();

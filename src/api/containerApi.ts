@@ -2,6 +2,10 @@ import apiClient from './client';
 import type { Container, ContainerRequest } from '@/types/container.types';
 
 export const containerApi = {
+    // Получить все контейнеры пользователя (для выбора родителя)
+    getAvailableForParent: () =>
+        apiClient.get<Container[]>('/containers/available-for-parent'),
+
     // Получить корневые места хранения
     getRootContainers: () =>
         apiClient.get<Container[]>('/containers'),
