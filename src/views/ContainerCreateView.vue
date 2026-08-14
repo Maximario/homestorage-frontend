@@ -37,20 +37,15 @@
 
 <div class="form-group">
         <label>Родительское место</label>
-        <select
-          v-model="form.parentId"
-          @change="handleParentChange"
-        >
-          <option :value="null">Без родителя (корневое)</option>
+        <select v-model="form.parentId" class="parent-select">
+          <option :value="undefined">🌳 Без родителя (корневое)</option>
           <option
-            v-for="container in filteredParents"
-            :key="container.id"
-            :value="container.id"
+              v-for="container in availableParents"
+              :key="container.id"
+              :value="container.id"
+              :class="{ 'is-child': container.parentId }"
           >
-            {{ getIndent(container) }} {{ container.name }}
-            <span v-if="!isValidParent(container)" style="color: #999;">
-              (недоступно)
-            </span>
+            {{ getIndent(container) }}{{ getIcon(container) }} {{ container.name }}
           </option>
         </select>
         <small v-if="form.type === 'BUILDING'">
@@ -62,7 +57,7 @@
         <small v-else-if="form.type === 'DRAWER'">
           🔹 Ящик может находиться внутри здания, квартиры, комнаты, мебели или полки.
         </small>
-        <small v-else-if="filteredParents.length === 0 && form.type">
+        <small v-else-if="availableParents.length === 0 && form.type">
           🔹 Для выбранного типа пока нет доступных родительских контейнеров.
         </small>
         <small v-else>
@@ -109,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { containerApi } from '@/api/containerApi';
 import { groupApi } from '@/api/groupApi';
@@ -120,20 +115,19 @@ const router = useRouter();
 const loading = ref(false);
 const error = ref('');
 
-// 📌 Данные формы
 const form = ref<ContainerRequest & { type: string }>({
   name: '',
   type: '',
   description: '',
-  parentId: null, // Используем null
+  parentId: undefined,
   accessLevel: 'PRIVATE',
   groupId: null,
 });
 
 const allContainers = ref<Container[]>([]);
+const availableParents = ref<Container[]>([]);
 const userGroups = ref<Group[]>([]);
 
-// 🔥 Правила иерархии
 const validParents: Record<string, string[]> = {
   BUILDING: [],
   APARTMENT: ['BUILDING'],
@@ -144,9 +138,9 @@ const validParents: Record<string, string[]> = {
   DRAWER: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF'],
 };
 
+// 🔥 Проверяет, может ли контейнер быть родителем ПО ТИПУ (без проверки на себя)
 const isValidParent = (container: Container): boolean => {
   if (!form.value.type) return false;
-  if (container.id === form.value.parentId) return false;
 
   const allowedTypes = validParents[form.value.type] || [];
   if (allowedTypes.length === 0) return false;
@@ -154,36 +148,50 @@ const isValidParent = (container: Container): boolean => {
   return allowedTypes.includes(container.type);
 };
 
-const filteredParents = computed(() => {
-  return allContainers.value.filter(c => isValidParent(c));
-});
-
-const getIndent = (container: Container): string => {
-  const parent = allContainers.value.find(c => c.id === container.parentId);
-  if (parent) {
-    return '  ' + getIndent(parent);
-  }
-  return '';
+const updateAvailableParents = () => {
+  // 🔥 Фильтруем родители, которые подходят по типу, но ИСКЛЮЧАЕМ самого себя
+  availableParents.value = allContainers.value.filter(c =>
+    isValidParent(c) && c.id !== form.value.parentId
+  );
 };
 
-// 🔥 Принудительно обновляем select при изменении модели
-const handleParentChange = () => {
-  // Ничего не делаем — просто принудительно обновляем реактивность
-  nextTick(() => {
-    // Небольшой трюк: обновляем ссылку на массив,
-    // чтобы Vue перерисовал select
-    const currentParentId = form.value.parentId;
-    form.value.parentId = null;
-    nextTick(() => {
-      form.value.parentId = currentParentId;
-    });
-  });
+// 🔥 Вычисляет глубину вложенности контейнера (0 = корневой)
+const getLevel = (container: Container): number => {
+  if (!container.parentId) return 0;
+  const parent = allContainers.value.find(p => p.id === container.parentId);
+  if (!parent) {
+    console.warn('⚠️ Parent not found for container:', container.id, container.parentId);
+  }
+  return parent ? 1 + getLevel(parent) : 0;
+};
+
+// 🔥 Возвращает строку с отступами для иерархического отображения
+const getIndent = (container: Container): string => {
+  const level = getLevel(container);
+  return '\u00A0'.repeat(level*4);
+};
+
+
+// 🔥 Возвращает иконку для типа контейнера
+const getIcon = (container: Container): string => {
+  const icons: Record<string, string> = {
+    BUILDING: '🏢',
+    APARTMENT: '🏠',
+    ROOM: '🚪',
+    FURNITURE: '🪑',
+    SHELF: '📚',
+    BOX: '📦',
+    DRAWER: '🗄️',
+  };
+  return icons[container.type] || '📁';
 };
 
 const loadFormData = async () => {
   try {
     const containersResp = await containerApi.getAvailableForParent();
     allContainers.value = containersResp.data;
+    console.log('📦 All containers loaded:', allContainers.value.length);
+    updateAvailableParents();
 
     try {
       const groupsResp = await groupApi.getUserGroups();
@@ -210,12 +218,10 @@ const handleSubmit = async () => {
       name: form.value.name,
       description: form.value.description || undefined,
       type: form.value.type as Container['type'],
-      parentId: form.value.parentId, // null → отправляется как null
+      parentId: form.value.parentId,
       accessLevel: form.value.accessLevel as Container['accessLevel'],
       groupId: form.value.accessLevel !== 'PRIVATE' ? form.value.groupId : undefined,
     };
-
-    console.log('📦 Sending payload:', payload);
 
     await containerApi.createContainer(payload);
     router.push('/containers');
@@ -230,14 +236,19 @@ const goBack = () => {
   router.push('/containers');
 };
 
-watch(() => form.value.type, () => {
-  if (form.value.parentId) {
-    const parent = allContainers.value.find(c => c.id === form.value.parentId);
-    if (!parent || !isValidParent(parent)) {
-      form.value.parentId = null;
+// 🔥 Следим за изменением типа и обновляем список родителей
+watch(
+  () => form.value.type,
+  () => {
+    updateAvailableParents();
+    if (form.value.parentId) {
+      const parent = allContainers.value.find(c => c.id === form.value.parentId);
+      if (!parent || !isValidParent(parent)) {
+        form.value.parentId = undefined;
+      }
     }
   }
-});
+);
 
 onMounted(() => {
   loadFormData();
@@ -306,6 +317,15 @@ h2 {
   display: flex;
   gap: 10px;
   margin-top: 20px;
+}
+
+.parent-select option {
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.parent-select option.is-child {
+  background-color: #f9f9f9;
 }
 
 .btn-primary {

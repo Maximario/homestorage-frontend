@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { authApi } from '@/api/authApi';
 
@@ -61,6 +61,10 @@ const password = ref('');
 const confirmPassword = ref('');
 const loading = ref(false);
 const error = ref('');
+
+onMounted(() => {
+    console.log('✅ RegisterView mounted!');
+});
 
 const handleRegister = async () => {
   // Проверка на заполненность полей
