@@ -35,22 +35,22 @@
         />
       </div>
 
-      <div class="form-group">
+<div class="form-group">
         <label>Родительское место</label>
         <select
-            v-model="form.parentId"
-            @change="handleParentChange"
+          v-model="form.parentId"
+          @change="handleParentChange"
         >
           <option :value="null">Без родителя (корневое)</option>
           <option
-              v-for="container in filteredParents"
-              :key="container.id"
-              :value="container.id"
+            v-for="container in filteredParents"
+            :key="container.id"
+            :value="container.id"
           >
             {{ getIndent(container) }} {{ container.name }}
             <span v-if="!isValidParent(container)" style="color: #999;">
-        (недоступно)
-      </span>
+              (недоступно)
+            </span>
           </option>
         </select>
         <small v-if="form.type === 'BUILDING'">
@@ -120,12 +120,12 @@ const router = useRouter();
 const loading = ref(false);
 const error = ref('');
 
-// Данные формы
+// 📌 Данные формы
 const form = ref<ContainerRequest & { type: string }>({
   name: '',
   type: '',
   description: '',
-  parentId: null,
+  parentId: null, // Используем null
   accessLevel: 'PRIVATE',
   groupId: null,
 });
@@ -133,6 +133,7 @@ const form = ref<ContainerRequest & { type: string }>({
 const allContainers = ref<Container[]>([]);
 const userGroups = ref<Group[]>([]);
 
+// 🔥 Правила иерархии
 const validParents: Record<string, string[]> = {
   BUILDING: [],
   APARTMENT: ['BUILDING'],
@@ -143,40 +144,29 @@ const validParents: Record<string, string[]> = {
   DRAWER: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF'],
 };
 
-// Проверка: можно ли выбрать этот контейнер как родителя
 const isValidParent = (container: Container): boolean => {
   if (!form.value.type) return false;
-  if (container.id === form.value.parentId) return false; // сам себя
-  if (isDescendant(container.id)) return false; // защита от циклов
+  if (container.id === form.value.parentId) return false;
 
-  // Если у типа нет доступных родителей (BUILDING) — родитель запрещён
   const allowedTypes = validParents[form.value.type] || [];
   if (allowedTypes.length === 0) return false;
 
   return allowedTypes.includes(container.type);
 };
 
-// 🔥 Проверка на цикл (упрощённая версия)
-const isDescendant = (parentId: string): boolean => {
-  // Временно: простая проверка, чтобы не выбрать потомка
-  // Более точная версия потребует загрузки дерева
-  return false;
-};
-
-// Фильтруем доступные родители
 const filteredParents = computed(() => {
   return allContainers.value.filter(c => isValidParent(c));
 });
 
-// Отступы для визуализации иерархии
 const getIndent = (container: Container): string => {
   const parent = allContainers.value.find(c => c.id === container.parentId);
   if (parent) {
-    return '>>' + getIndent(parent);
+    return '  ' + getIndent(parent);
   }
   return '';
 };
 
+// 🔥 Принудительно обновляем select при изменении модели
 const handleParentChange = () => {
   // Ничего не делаем — просто принудительно обновляем реактивность
   nextTick(() => {
@@ -220,10 +210,12 @@ const handleSubmit = async () => {
       name: form.value.name,
       description: form.value.description || undefined,
       type: form.value.type as Container['type'],
-      parentId: form.value.parentId || undefined,
+      parentId: form.value.parentId, // null → отправляется как null
       accessLevel: form.value.accessLevel as Container['accessLevel'],
       groupId: form.value.accessLevel !== 'PRIVATE' ? form.value.groupId : undefined,
     };
+
+    console.log('📦 Sending payload:', payload);
 
     await containerApi.createContainer(payload);
     router.push('/containers');
@@ -238,7 +230,6 @@ const goBack = () => {
   router.push('/containers');
 };
 
-// Сброс родителя при смене типа
 watch(() => form.value.type, () => {
   if (form.value.parentId) {
     const parent = allContainers.value.find(c => c.id === form.value.parentId);
