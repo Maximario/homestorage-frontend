@@ -106,9 +106,6 @@ import { translateType, translateAccess, translateCategory, getTypeIcon} from "@
 
 const route = useRoute();
 const router = useRouter();
-
-const containerId = route.params.id as string;
-
 const container = ref<Container | null>(null);
 const children = ref<Container[]>([]);
 const items = ref<Item[]>([]);
@@ -197,7 +194,7 @@ const goToCreateChild = () => {
   // Переходим на форму создания с предзаполненным parentId
   router.push({
     path: '/containers/create',
-    query: { parentId: containerId }
+    query: { parentId: route.params.id }
   });
 };
 
