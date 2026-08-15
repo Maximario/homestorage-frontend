@@ -34,9 +34,17 @@
     </p>
 
     <!-- Вложенные контейнеры (дочерние места) -->
-    <div v-if="children.length > 0" class="section">
-      <h3>📁 Внутри находятся:</h3>
-      <div class="child-grid">
+    <div class="section">
+      <div class="section-header">
+          <h3>📁 Внутри находятся:</h3>
+          <button class="btn-primary" @click="goToCreateChild">
+            + Добавить место
+          </button>
+      </div>
+      <div v-if="children.length === 0" class="empty">
+        Здесь еще нет мест для хранения. Добавьте первое!
+      </div>
+      <div v-else class="child-grid">
         <div
           v-for="child in children"
           :key="child.id"
@@ -183,6 +191,14 @@ watch(
 // ----- НАВИГАЦИЯ -----
 const goToContainer = (id: string) => {
   router.push(`/containers/${id}`);
+};
+
+const goToCreateChild = () => {
+  // Переходим на форму создания с предзаполненным parentId
+  router.push({
+    path: '/containers/create',
+    query: { parentId: containerId }
+  });
 };
 
 const goToCreateItem = () => {

@@ -16,14 +16,17 @@
         <label>Тип *</label>
         <select v-model="form.type" required>
           <option value="">Выберите тип...</option>
-          <option value="BUILDING">🏢 Здание</option>
-          <option value="APARTMENT">🏠 Квартира</option>
-          <option value="ROOM">🚪 Комната</option>
-          <option value="FURNITURE">🪑 Мебель</option>
-          <option value="SHELF">📚 Полка</option>
-          <option value="BOX">📦 Коробка</option>
-          <option value="DRAWER">🗄️ Ящик</option>
+          <option
+              v-for="type in availableChildTypes.length > 0 ? availableChildTypes : allTypes"
+              :key="type"
+              :value="type"
+          >
+            {{ getTypeLabel(type) }}
+          </option>
         </select>
+        <small v-if="availableChildTypes.length > 0">
+          🔹 Доступны только типы, которые могут находиться внутри выбранного родителя.
+        </small>
       </div>
 
       <div class="form-group">
@@ -35,9 +38,13 @@
         />
       </div>
 
-<div class="form-group">
+      <div class="form-group">
         <label>Родительское место</label>
-        <select v-model="form.parentId" class="parent-select">
+        <select
+            v-model="form.parentId"
+            class="parent-select"
+            :disabled="!!route.query.parentId"
+        >
           <option :value="undefined">🌳 Без родителя (корневое)</option>
           <option
               v-for="container in availableParents"
@@ -48,7 +55,10 @@
             {{ getIndent(container) }}{{ getIcon(container) }} {{ container.name }}
           </option>
         </select>
-        <small v-if="form.type === 'BUILDING'">
+        <small v-if="route.query.parentId">
+          🔹 Родительское место установлено из текущего контейнера.
+        </small>
+        <small v-else-if="form.type === 'BUILDING'">
           🔹 Здание не может иметь родителя — оно всегда корневое.
         </small>
         <small v-else-if="form.type === 'BOX'">
@@ -105,13 +115,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { containerApi } from '@/api/containerApi';
 import { groupApi } from '@/api/groupApi';
 import type { Container, ContainerRequest } from '@/types/container.types';
 import type { Group } from '@/types/group.types';
 
 const router = useRouter();
+const route = useRoute();
 const loading = ref(false);
 const error = ref('');
 
@@ -127,6 +138,22 @@ const form = ref<ContainerRequest & { type: string }>({
 const allContainers = ref<Container[]>([]);
 const availableParents = ref<Container[]>([]);
 const userGroups = ref<Group[]>([]);
+const availableChildTypes = ref<string[]>([]);
+
+const allTypes = ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'];
+
+const getTypeLabel = (type: string): string => {
+  const map: Record<string, string> = {
+    BUILDING: '🏢 Здание',
+    APARTMENT: '🏠 Квартира',
+    ROOM: '🚪 Комната',
+    FURNITURE: '🪑 Мебель',
+    SHELF: '📚 Полка',
+    BOX: '📦 Коробка',
+    DRAWER: '🗄️ Ящик',
+  };
+  return map[type] || type;
+};
 
 const validParents: Record<string, string[]> = {
   BUILDING: [],
@@ -138,7 +165,20 @@ const validParents: Record<string, string[]> = {
   DRAWER: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF'],
 };
 
-// 🔥 Проверяет, может ли контейнер быть родителем ПО ТИПУ (без проверки на себя)
+// 🔥 Возвращает список типов, которые могут быть внутри родителя
+const getAvailableChildTypes = (parentType: string): string[] => {
+  const map: Record<string, string[]> = {
+    BUILDING: ['APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+    APARTMENT: ['ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+    ROOM: ['FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+    FURNITURE: ['SHELF', 'BOX', 'DRAWER'],
+    SHELF: ['BOX', 'DRAWER'],
+    BOX: ['BOX'],
+    DRAWER: ['BOX'],
+  };
+  return map[parentType] || [];
+};
+
 const isValidParent = (container: Container): boolean => {
   if (!form.value.type) return false;
 
@@ -148,14 +188,6 @@ const isValidParent = (container: Container): boolean => {
   return allowedTypes.includes(container.type);
 };
 
-const updateAvailableParents = () => {
-  // 🔥 Фильтруем родители, которые подходят по типу, но ИСКЛЮЧАЕМ самого себя
-  availableParents.value = allContainers.value.filter(c =>
-    isValidParent(c) && c.id !== form.value.parentId
-  );
-};
-
-// 🔥 Вычисляет глубину вложенности контейнера (0 = корневой)
 const getLevel = (container: Container): number => {
   if (!container.parentId) return 0;
   const parent = allContainers.value.find(p => p.id === container.parentId);
@@ -165,14 +197,11 @@ const getLevel = (container: Container): number => {
   return parent ? 1 + getLevel(parent) : 0;
 };
 
-// 🔥 Возвращает строку с отступами для иерархического отображения
 const getIndent = (container: Container): string => {
   const level = getLevel(container);
-  return '\u00A0'.repeat(level*4);
+  return '\u00A0'.repeat(level * 4);
 };
 
-
-// 🔥 Возвращает иконку для типа контейнера
 const getIcon = (container: Container): string => {
   const icons: Record<string, string> = {
     BUILDING: '🏢',
@@ -186,12 +215,46 @@ const getIcon = (container: Container): string => {
   return icons[container.type] || '📁';
 };
 
+const updateAvailableParents = () => {
+  // 🔥 Фильтруем родители, которые подходят по типу, но ИСКЛЮЧАЕМ самого себя
+  let filtered = allContainers.value.filter(c =>
+      isValidParent(c) && c.id !== form.value.parentId
+  );
+
+  // 🔥 Если есть выбранный родитель из query — добавляем его в список
+  const parentIdFromQuery = route.query.parentId as string;
+  if (parentIdFromQuery) {
+    const parent = allContainers.value.find(c => c.id === parentIdFromQuery);
+    if (parent) {
+      const alreadyExists = filtered.some(c => c.id === parent.id);
+      if (!alreadyExists) {
+        filtered = [parent, ...filtered];
+      }
+    }
+  }
+
+  availableParents.value = filtered;
+};
+
 const loadFormData = async () => {
   try {
     const containersResp = await containerApi.getAvailableForParent();
     allContainers.value = containersResp.data;
-    console.log('📦 All containers loaded:', allContainers.value.length);
-    updateAvailableParents();
+
+    const parentIdFromQuery = route.query.parentId as string;
+    if (parentIdFromQuery) {
+      const parent = allContainers.value.find(c => c.id === parentIdFromQuery);
+      if (parent) {
+        form.value.parentId = parentIdFromQuery;
+        availableChildTypes.value = getAvailableChildTypes(parent.type);
+        updateAvailableParents();
+        if (form.value.type && !availableChildTypes.value.includes(form.value.type)) {
+          form.value.type = '';
+        }
+      }
+    } else {
+      updateAvailableParents();
+    }
 
     try {
       const groupsResp = await groupApi.getUserGroups();
@@ -224,7 +287,12 @@ const handleSubmit = async () => {
     };
 
     await containerApi.createContainer(payload);
-    router.push('/containers');
+
+    if (form.value.parentId) {
+      router.push(`/containers/${form.value.parentId}`);
+    } else {
+      router.push('/containers');
+    }
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Ошибка создания контейнера';
   } finally {
@@ -233,21 +301,24 @@ const handleSubmit = async () => {
 };
 
 const goBack = () => {
-  router.push('/containers');
+  if (form.value.parentId) {
+    router.push(`/containers/${form.value.parentId}`);
+  } else {
+    router.push('/containers');
+  }
 };
 
-// 🔥 Следим за изменением типа и обновляем список родителей
 watch(
-  () => form.value.type,
-  () => {
-    updateAvailableParents();
-    if (form.value.parentId) {
-      const parent = allContainers.value.find(c => c.id === form.value.parentId);
-      if (!parent || !isValidParent(parent)) {
-        form.value.parentId = undefined;
+    () => form.value.type,
+    () => {
+      updateAvailableParents();
+      if (form.value.parentId) {
+        const parent = allContainers.value.find(c => c.id === form.value.parentId);
+        if (!parent || !isValidParent(parent)) {
+          form.value.parentId = undefined;
+        }
       }
     }
-  }
 );
 
 onMounted(() => {
