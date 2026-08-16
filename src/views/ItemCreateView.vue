@@ -67,29 +67,39 @@
 
       <div class="form-group">
         <label>Фото вещи</label>
-        <div class="photo-upload">
-          <div v-if="photoPreview" class="photo-preview">
-            <img :src="photoPreview" alt="Фото вещи" class="photo-image" />
-            <button
-                type="button"
-                class="photo-remove"
-                @click="removePhoto"
-                title="Удалить фото"
-            >
-              ✕
-            </button>
-          </div>
-          <div v-else class="photo-placeholder">
-            <span class="photo-placeholder-icon">📷</span>
-            <span>Нажмите для загрузки фото</span>
-          </div>
-          <input
+        <div class="photo-wrapper">
+          <div class="photo-upload">
+            <!-- Если выбрано фото для загрузки — показываем превью -->
+            <div v-if="photoPreview" class="photo-preview">
+              <img
+                :src="photoPreview"
+                alt="Новое фото"
+                class="photo-image"
+              />
+            </div>
+            <!-- Если нет фото — показываем заглушку -->
+            <div v-else class="photo-placeholder">
+              <span class="photo-placeholder-icon">📷</span>
+              <span>Нажмите для загрузки фото</span>
+            </div>
+            <input
               ref="fileInput"
               type="file"
               accept="image/*"
               class="photo-input"
               @change="handleFileSelect"
-          />
+            />
+          </div>
+          <!-- 🔥 Кнопка удаления вынесена за пределы photo-upload -->
+          <button
+            v-if="photoPreview"
+            type="button"
+            class="photo-remove-btn"
+            @click="removePhoto"
+            title="Удалить фото"
+          >
+            ✕ Удалить фото
+          </button>
         </div>
         <small>Поддерживаются форматы JPG, PNG, WEBP. Максимальный размер 10 МБ.</small>
       </div>
@@ -337,6 +347,13 @@ h2 {
 }
 
 /* 🔥 Стили для загрузки фото */
+.photo-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
 .photo-upload {
   position: relative;
   width: 200px;
@@ -365,28 +382,6 @@ h2 {
   object-fit: cover;
 }
 
-.photo-remove {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-
-.photo-remove:hover {
-  background: rgba(211, 47, 47, 0.9);
-}
-
 .photo-placeholder {
   display: flex;
   flex-direction: column;
@@ -411,5 +406,20 @@ h2 {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+}
+
+.photo-remove-btn {
+  padding: 4px 12px;
+  background: #d32f2f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+
+.photo-remove-btn:hover {
+  background: #b71c1c;
 }
 </style>

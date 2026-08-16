@@ -78,35 +78,51 @@
 
       <div class="form-group">
         <label>Фото вещи</label>
-        <div class="photo-upload">
-          <div v-if="currentPhotoUrl || photoPreview" class="photo-preview">
-            <img
-                :src="photoPreview || currentPhotoUrl"
-                alt="Фото вещи"
-                class="photo-image"
+        <div class="photo-wrapper">
+          <div class="photo-upload" @click="openFilePicker">
+            <!-- Если есть фото — показываем его через PhotoViewer -->
+            <div v-if="hasPhoto" class="photo-preview">
+              <PhotoViewer
+                  :item-id="itemId"
+                  class="photo-viewer-compact"
+              />
+            </div>
+            <!-- Если выбрано новое фото для загрузки — показываем превью -->
+            <div v-else-if="photoPreview" class="photo-preview">
+              <img
+                  :src="photoPreview"
+                  alt="Новое фото"
+                  class="photo-image"
+              />
+            </div>
+            <!-- Если нет фото — показываем заглушку -->
+            <div v-else class="photo-placeholder">
+              <span class="photo-placeholder-icon">📷</span>
+              <span>Нажмите для загрузки фото</span>
+            </div>
+            <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                class="photo-input"
+                @change="handleFileSelect"
             />
-            <button
-                type="button"
-                class="photo-remove"
-                @click="removePhoto"
-                title="Удалить фото"
-            >
-              ✕
-            </button>
           </div>
-          <div v-else class="photo-placeholder">
-            <span class="photo-placeholder-icon">📷</span>
-            <span>Нажмите для загрузки фото</span>
-          </div>
-          <input
-              ref="fileInput"
-              type="file"
-              accept="image/*"
-              class="photo-input"
-              @change="handleFileSelect"
-          />
+          <!-- 🔥 Кнопка удаления вынесена за пределы photo-upload -->
+          <button
+              v-if="hasPhoto || photoPreview"
+              type="button"
+              class="photo-remove-btn"
+              @click="removePhoto"
+              title="Удалить фото"
+          >
+            ✕ Удалить фото
+          </button>
         </div>
         <small>Поддерживаются форматы JPG, PNG, WEBP. Максимальный размер 10 МБ.</small>
+        <small v-if="hasPhoto" class="photo-hint">
+          🔹 Текущее фото будет заменено при загрузке нового.
+        </small>
       </div>
 
       <div class="form-actions">
@@ -130,6 +146,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { itemApi } from '@/api/itemApi';
 import { containerApi } from '@/api/containerApi';
 import TreeSelect from '@/components/TreeSelect.vue';
+import PhotoViewer from '@/components/PhotoViewer.vue';
 import type { ItemRequest } from '@/types/item.types';
 
 const route = useRoute();
@@ -156,6 +173,10 @@ const photoPreview = ref<string>('');
 const selectedFile = ref<File | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const isUploading = ref(false);
+
+const hasPhoto = computed(() => {
+  return !!currentPhotoUrl.value && !photoPreview.value;
+});
 
 // 🔥 Рекурсивная загрузка дерева всех мест хранения
 const loadFullTree = async (node: any): Promise<any> => {
@@ -256,6 +277,17 @@ const handleFileSelect = (event: Event) => {
 
 // 🔥 Удаление фото
 const removePhoto = async () => {
+  // Если есть выбранный файл для загрузки — просто сбрасываем его
+  if (selectedFile.value) {
+    photoPreview.value = '';
+    selectedFile.value = null;
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
+    return;
+  }
+
+  // Если есть сохранённое фото — удаляем через API
   if (currentPhotoUrl.value) {
     // Если есть сохранённое фото — удаляем через API
     try {
@@ -274,13 +306,6 @@ const removePhoto = async () => {
       console.error(err);
     } finally {
       isUploading.value = false;
-    }
-  } else {
-    // Просто сбрасываем выбранный файл
-    photoPreview.value = '';
-    selectedFile.value = null;
-    if (fileInput.value) {
-      fileInput.value.value = '';
     }
   }
 };
@@ -412,6 +437,10 @@ h2 {
   font-size: 12px;
 }
 
+.form-group .photo-hint {
+  color: #1976d2;
+}
+
 .form-actions {
   display: flex;
   gap: 10px;
@@ -489,6 +518,18 @@ h2 {
   height: 100%;
 }
 
+.photo-viewer-compact {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  border: none;
+  min-height: unset;
+}
+
+.photo-viewer-compact :deep(.photo-image) {
+  max-height: 200px;
+}
+
 .photo-image {
   width: 100%;
   height: 100%;
@@ -541,5 +582,39 @@ h2 {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+}
+
+.photo-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.photo-upload {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  background: #fafafa;
+}
+
+.photo-remove-btn {
+  align-self: flex-start;
+  padding: 4px 12px;
+  background: #d32f2f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+
+.photo-remove-btn:hover {
+  background: #b71c1c;
 }
 </style>
