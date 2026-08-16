@@ -14,18 +14,21 @@
 
       <div class="form-group">
         <label>Тип *</label>
-        <select v-model="form.type" required>
+        <select v-model="form.type" required @change="onTypeChange">
           <option value="">Выберите тип...</option>
           <option
-              v-for="type in availableChildTypes.length > 0 ? availableChildTypes : allTypes"
+              v-for="type in filteredTypes"
               :key="type"
               :value="type"
           >
             {{ getTypeLabel(type) }}
           </option>
         </select>
-        <small v-if="availableChildTypes.length > 0">
+        <small v-if="form.parentId && filteredTypes.length > 0">
           🔹 Доступны только типы, которые могут находиться внутри выбранного родителя.
+        </small>
+        <small v-else-if="!form.parentId && form.type">
+          🔹 Выберите родителя, чтобы ограничить доступные типы.
         </small>
       </div>
 
@@ -40,22 +43,20 @@
 
       <div class="form-group">
         <label>Родительское место</label>
-        <select
+        <TreeSelect
             v-model="form.parentId"
-            class="parent-select"
-            :disabled="!!route.query.parentId"
-        >
-          <option :value="undefined">🌳 Без родителя (корневое)</option>
-          <option
-              v-for="container in availableParents"
-              :key="container.id"
-              :value="container.id"
-              :class="{ 'is-child': container.parentId }"
-          >
-            {{ getIndent(container) }}{{ getIcon(container) }} {{ container.name }}
-          </option>
-        </select>
-        <small v-if="route.query.parentId">
+            :tree-data="filteredTreeData"
+            :valid-child-types="[]"
+            placeholder="Выберите родительское место..."
+            @update:model-value="onParentChange"
+        />
+        <small v-if="form.type && !form.parentId">
+          🔹 Выберите родителя, соответствующий правилам иерархии для типа "{{ getTypeLabel(form.type) }}".
+        </small>
+        <small v-else-if="form.parentId && filteredTreeData.length === 0">
+          🔹 Для выбранного типа нет доступных родительских контейнеров.
+        </small>
+        <small v-else-if="route.query.parentId">
           🔹 Родительское место установлено из текущего контейнера.
         </small>
         <small v-else-if="form.type === 'BUILDING'">
@@ -66,9 +67,6 @@
         </small>
         <small v-else-if="form.type === 'DRAWER'">
           🔹 Ящик может находиться внутри здания, квартиры, комнаты, мебели или полки.
-        </small>
-        <small v-else-if="availableParents.length === 0 && form.type">
-          🔹 Для выбранного типа пока нет доступных родительских контейнеров.
         </small>
         <small v-else>
           🔹 Доступны только контейнеры, соответствующие правилам иерархии.
@@ -114,15 +112,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { containerApi } from '@/api/containerApi';
+import { containerApi, type ContainerTree } from '@/api/containerApi';
 import { groupApi } from '@/api/groupApi';
+import TreeSelect from '@/components/TreeSelect.vue';
 import type { Container, ContainerRequest } from '@/types/container.types';
 import type { Group } from '@/types/group.types';
 
 const router = useRouter();
 const route = useRoute();
+
 const loading = ref(false);
 const error = ref('');
 
@@ -135,13 +135,76 @@ const form = ref<ContainerRequest & { type: string }>({
   groupId: null,
 });
 
-const allContainers = ref<Container[]>([]);
-const availableParents = ref<Container[]>([]);
+const treeData = ref<ContainerTree[]>([]);
 const userGroups = ref<Group[]>([]);
-const availableChildTypes = ref<string[]>([]);
 
+// 🔥 Все доступные типы
 const allTypes = ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'];
 
+// 🔥 Правила: какие типы могут быть внутри какого родителя
+const validChildrenMap: Record<string, string[]> = {
+  BUILDING: ['APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+  APARTMENT: ['ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+  ROOM: ['FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+  FURNITURE: ['SHELF', 'BOX', 'DRAWER'],
+  SHELF: ['BOX', 'DRAWER'],
+  BOX: ['BOX'],
+  DRAWER: ['BOX'],
+};
+
+// 🔥 Правила: какие родители подходят для типа
+const validParentsMap: Record<string, string[]> = {
+  BUILDING: [],
+  APARTMENT: ['BUILDING'],
+  ROOM: ['BUILDING', 'APARTMENT'],
+  FURNITURE: ['BUILDING', 'APARTMENT', 'ROOM'],
+  SHELF: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE'],
+  BOX: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+  DRAWER: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF'],
+};
+
+// 🔥 Фильтруем типы в зависимости от выбранного родителя
+const filteredTypes = computed(() => {
+  if (!form.value.parentId) return allTypes;
+
+  // Находим родителя в дереве
+  const findParent = (nodes: any[]): any => {
+    for (const node of nodes) {
+      if (node.id === form.value.parentId) return node;
+      const found = findParent(node.children);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const parent = findParent(treeData.value);
+  if (!parent) return allTypes;
+
+  return validChildrenMap[parent.type] || [];
+});
+
+// 🔥 Фильтруем дерево в зависимости от выбранного типа
+const filteredTreeData = computed(() => {
+  if (!form.value.type) return treeData.value;
+  if (form.value.type === 'BUILDING') return []; // BUILDING не может иметь родителя
+
+  const allowedParentTypes = validParentsMap[form.value.type] || [];
+  if (allowedParentTypes.length === 0) return [];
+
+  // Фильтруем дерево: оставляем только те узлы, типы которых разрешены
+  const filterTree = (nodes: any[]): any[] => {
+    return nodes
+        .map(node => ({
+          ...node,
+          children: filterTree(node.children),
+        }))
+        .filter(node => allowedParentTypes.includes(node.type) || node.children.length > 0);
+  };
+
+  return filterTree(treeData.value);
+});
+
+// 🔥 Возвращает метку для типа
 const getTypeLabel = (type: string): string => {
   const map: Record<string, string> = {
     BUILDING: '🏢 Здание',
@@ -155,106 +218,74 @@ const getTypeLabel = (type: string): string => {
   return map[type] || type;
 };
 
-const validParents: Record<string, string[]> = {
-  BUILDING: [],
-  APARTMENT: ['BUILDING'],
-  ROOM: ['BUILDING', 'APARTMENT'],
-  FURNITURE: ['BUILDING', 'APARTMENT', 'ROOM'],
-  SHELF: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE'],
-  BOX: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
-  DRAWER: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF'],
-};
-
-// 🔥 Возвращает список типов, которые могут быть внутри родителя
-const getAvailableChildTypes = (parentType: string): string[] => {
-  const map: Record<string, string[]> = {
-    BUILDING: ['APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
-    APARTMENT: ['ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
-    ROOM: ['FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
-    FURNITURE: ['SHELF', 'BOX', 'DRAWER'],
-    SHELF: ['BOX', 'DRAWER'],
-    BOX: ['BOX'],
-    DRAWER: ['BOX'],
-  };
-  return map[parentType] || [];
-};
-
-const isValidParent = (container: Container): boolean => {
-  if (!form.value.type) return false;
-
-  const allowedTypes = validParents[form.value.type] || [];
-  if (allowedTypes.length === 0) return false;
-
-  return allowedTypes.includes(container.type);
-};
-
-const getLevel = (container: Container): number => {
-  if (!container.parentId) return 0;
-  const parent = allContainers.value.find(p => p.id === container.parentId);
-  if (!parent) {
-    console.warn('⚠️ Parent not found for container:', container.id, container.parentId);
+// 🔥 Обработчик изменения типа
+const onTypeChange = () => {
+  // Если выбран тип BUILDING — очищаем родителя
+  if (form.value.type === 'BUILDING') {
+    form.value.parentId = undefined;
   }
-  return parent ? 1 + getLevel(parent) : 0;
-};
 
-const getIndent = (container: Container): string => {
-  const level = getLevel(container);
-  return '\u00A0'.repeat(level * 4);
-};
-
-const getIcon = (container: Container): string => {
-  const icons: Record<string, string> = {
-    BUILDING: '🏢',
-    APARTMENT: '🏠',
-    ROOM: '🚪',
-    FURNITURE: '🪑',
-    SHELF: '📚',
-    BOX: '📦',
-    DRAWER: '🗄️',
-  };
-  return icons[container.type] || '📁';
-};
-
-const updateAvailableParents = () => {
-  // 🔥 Фильтруем родители, которые подходят по типу, но ИСКЛЮЧАЕМ самого себя
-  let filtered = allContainers.value.filter(c =>
-      isValidParent(c) && c.id !== form.value.parentId
-  );
-
-  // 🔥 Если есть выбранный родитель из query — добавляем его в список
-  const parentIdFromQuery = route.query.parentId as string;
-  if (parentIdFromQuery) {
-    const parent = allContainers.value.find(c => c.id === parentIdFromQuery);
-    if (parent) {
-      const alreadyExists = filtered.some(c => c.id === parent.id);
-      if (!alreadyExists) {
-        filtered = [parent, ...filtered];
-      }
+  // Если выбранный родитель не подходит под тип — сбрасываем
+  if (form.value.parentId && form.value.type) {
+    const parent = treeData.value.find(c => c.id === form.value.parentId);
+    if (parent && !validParentsMap[form.value.type].includes(parent.type)) {
+      form.value.parentId = undefined;
     }
   }
+};
 
-  availableParents.value = filtered;
+// 🔥 Обработчик изменения родителя
+const onParentChange = (parentId: string | undefined) => {
+  form.value.parentId = parentId;
+  // Если выбран тип BUILDING и появился родитель — сбрасываем тип
+  if (parentId && form.value.type === 'BUILDING') {
+    form.value.type = '';
+  }
+  // Если выбранный тип не подходит под родителя — сбрасываем
+  if (parentId && form.value.type) {
+    const parent = treeData.value.find(c => c.id === parentId);
+    if (parent && !validChildrenMap[parent.type].includes(form.value.type)) {
+      form.value.type = '';
+    }
+  }
+};
+
+// 🔥 Загружаем дерево
+const loadTreeData = async () => {
+  try {
+    const parentIdFromQuery = route.query.parentId as string;
+    if (parentIdFromQuery) {
+      const response = await containerApi.getContainerTree(parentIdFromQuery);
+      treeData.value = [response.data];
+      // Устанавливаем родителя
+      form.value.parentId = parentIdFromQuery;
+    } else {
+      const response = await containerApi.getRootContainers();
+      treeData.value = response.data.map(c => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        children: [],
+      }));
+      // Загружаем детей (1 уровень)
+      for (const root of treeData.value) {
+        const childrenResp = await containerApi.getChildContainers(root.id);
+        root.children = childrenResp.data.map(c => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          children: [],
+        }));
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load tree data', err);
+  }
 };
 
 const loadFormData = async () => {
   try {
-    const containersResp = await containerApi.getAvailableForParent();
-    allContainers.value = containersResp.data;
-
-    const parentIdFromQuery = route.query.parentId as string;
-    if (parentIdFromQuery) {
-      const parent = allContainers.value.find(c => c.id === parentIdFromQuery);
-      if (parent) {
-        form.value.parentId = parentIdFromQuery;
-        availableChildTypes.value = getAvailableChildTypes(parent.type);
-        updateAvailableParents();
-        if (form.value.type && !availableChildTypes.value.includes(form.value.type)) {
-          form.value.type = '';
-        }
-      }
-    } else {
-      updateAvailableParents();
-    }
+    await loadTreeData();
 
     try {
       const groupsResp = await groupApi.getUserGroups();
@@ -309,15 +340,9 @@ const goBack = () => {
 };
 
 watch(
-    () => form.value.type,
+    () => route.query.parentId,
     () => {
-      updateAvailableParents();
-      if (form.value.parentId) {
-        const parent = allContainers.value.find(c => c.id === form.value.parentId);
-        if (!parent || !isValidParent(parent)) {
-          form.value.parentId = undefined;
-        }
-      }
+      loadTreeData();
     }
 );
 
