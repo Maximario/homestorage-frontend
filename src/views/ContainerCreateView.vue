@@ -250,33 +250,56 @@ const onParentChange = (parentId: string | undefined) => {
   }
 };
 
-// 🔥 Загружаем дерево
+// 🔥 Рекурсивная загрузка всех потомков
+const loadFullTree = async (node: any): Promise<any> => {
+  if (!node.id) return node;
+  try {
+    const childrenResp = await containerApi.getChildContainers(node.id);
+    node.children = await Promise.all(
+        childrenResp.data.map(async (c: any) => {
+          const child = {
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            children: [],
+          };
+          return await loadFullTree(child);
+        })
+    );
+    return node;
+  } catch (err) {
+    console.error(`Failed to load children for ${node.id}`, err);
+    return node;
+  }
+};
+
+// 🔥 Загружаем дерево для выбора родителя
 const loadTreeData = async () => {
   try {
     const parentIdFromQuery = route.query.parentId as string;
     if (parentIdFromQuery) {
-      const response = await containerApi.getContainerTree(parentIdFromQuery);
-      treeData.value = [response.data];
-      // Устанавливаем родителя
-      form.value.parentId = parentIdFromQuery;
+      const response = await containerApi.getContainerById(parentIdFromQuery);
+      const root = {
+        id: response.data.id,
+        name: response.data.name,
+        type: response.data.type,
+        children: [],
+      };
+      const fullRoot = await loadFullTree(root);
+      treeData.value = [fullRoot];
     } else {
       const response = await containerApi.getRootContainers();
-      treeData.value = response.data.map(c => ({
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        children: [],
-      }));
-      // Загружаем детей (1 уровень)
-      for (const root of treeData.value) {
-        const childrenResp = await containerApi.getChildContainers(root.id);
-        root.children = childrenResp.data.map(c => ({
-          id: c.id,
-          name: c.name,
-          type: c.type,
-          children: [],
-        }));
-      }
+      treeData.value = await Promise.all(
+          response.data.map(async (c: any) => {
+            const root = {
+              id: c.id,
+              name: c.name,
+              type: c.type,
+              children: [],
+            };
+            return await loadFullTree(root);
+          })
+      );
     }
   } catch (err) {
     console.error('Failed to load tree data', err);

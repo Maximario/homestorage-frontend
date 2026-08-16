@@ -38,21 +38,28 @@
 
       <div class="form-group">
         <label>Родительское место</label>
-        <select v-model="form.parentId" class="parent-select">
-          <option :value="undefined">🌳 Без родителя (корневое)</option>
-          <option
-              v-for="container in availableParents"
-              :key="container.id"
-              :value="container.id"
-              :class="{ 'is-child': container.parentId }"
-          >
-            {{ getIndent(container) }}{{ getIcon(container) }} {{ container.name }}
-            <span v-if="container.id === originalParentId" style="color: #1976d2; font-weight: bold;">
-              (текущий)
-            </span>
-          </option>
-        </select>
-        <small>🔹 Вы можете изменить родительское место.</small>
+        <TreeSelect
+            v-model="form.parentId"
+            :tree-data="filteredTreeData"
+            :valid-child-types="[]"
+            placeholder="Выберите родительское место..."
+            @update:model-value="onParentChange"
+        />
+        <small v-if="form.type === 'BUILDING'">
+          🔹 Здание не может иметь родителя — оно всегда корневое.
+        </small>
+        <small v-else-if="form.type === 'BOX'">
+          🔹 Коробка может находиться внутри здания, квартиры, комнаты, мебели, полки, другой коробки или ящика.
+        </small>
+        <small v-else-if="form.type === 'DRAWER'">
+          🔹 Ящик может находиться внутри здания, квартиры, комнаты, мебели или полки.
+        </small>
+        <small v-else-if="form.parentId && filteredTreeData.length === 0">
+          🔹 Для выбранного типа нет доступных родительских контейнеров.
+        </small>
+        <small v-else>
+          🔹 Доступны только контейнеры, соответствующие правилам иерархии.
+        </small>
       </div>
 
       <div class="form-group">
@@ -95,10 +102,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { containerApi } from '@/api/containerApi';
+import { containerApi, type ContainerTree } from '@/api/containerApi';
 import { groupApi } from '@/api/groupApi';
+import TreeSelect from '@/components/TreeSelect.vue';
 import type { Container, ContainerRequest } from '@/types/container.types';
 import type { Group } from '@/types/group.types';
 
@@ -119,13 +127,23 @@ const form = ref<ContainerRequest & { type: string }>({
   groupId: null,
 });
 
-const allContainers = ref<Container[]>([]);
-const availableParents = ref<Container[]>([]);
+const treeData = ref<ContainerTree[]>([]);
 const userGroups = ref<Group[]>([]);
 const originalParentId = ref<string | undefined>(undefined);
 
-// 🔥 Правила иерархии
-const validParents: Record<string, string[]> = {
+// 🔥 Правила: какие типы могут быть внутри какого родителя
+const validChildrenMap: Record<string, string[]> = {
+  BUILDING: ['APARTMENT', 'ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+  APARTMENT: ['ROOM', 'FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+  ROOM: ['FURNITURE', 'SHELF', 'BOX', 'DRAWER'],
+  FURNITURE: ['SHELF', 'BOX', 'DRAWER'],
+  SHELF: ['BOX', 'DRAWER'],
+  BOX: ['BOX'],
+  DRAWER: ['BOX'],
+};
+
+// 🔥 Правила: какие родители подходят для типа
+const validParentsMap: Record<string, string[]> = {
   BUILDING: [],
   APARTMENT: ['BUILDING'],
   ROOM: ['BUILDING', 'APARTMENT'],
@@ -135,61 +153,86 @@ const validParents: Record<string, string[]> = {
   DRAWER: ['BUILDING', 'APARTMENT', 'ROOM', 'FURNITURE', 'SHELF'],
 };
 
-// 🔥 Проверяет, может ли контейнер быть родителем ПО ТИПУ
-const isValidParent = (container: Container): boolean => {
-  if (!form.value.type) return false;
+// 🔥 Фильтруем дерево в зависимости от выбранного типа
+const filteredTreeData = computed(() => {
+  if (!form.value.type) return treeData.value;
+  if (form.value.type === 'BUILDING') return []; // BUILDING не может иметь родителя
 
-  const allowedTypes = validParents[form.value.type] || [];
-  if (allowedTypes.length === 0) return false;
+  const allowedParentTypes = validParentsMap[form.value.type] || [];
+  if (allowedParentTypes.length === 0) return [];
 
-  return allowedTypes.includes(container.type);
-};
-
-// 🔥 Вычисляет глубину вложенности контейнера (0 = корневой)
-const getLevel = (container: Container): number => {
-  if (!container.parentId) return 0;
-  const parent = allContainers.value.find(p => p.id === container.parentId);
-  return parent ? 1 + getLevel(parent) : 0;
-};
-
-// 🔥 Возвращает строку с отступами для иерархического отображения
-const getIndent = (container: Container): string => {
-  const level = getLevel(container);
-  return '\u00A0'.repeat(level * 4);
-};
-
-// 🔥 Возвращает иконку для типа контейнера
-const getIcon = (container: Container): string => {
-  const icons: Record<string, string> = {
-    BUILDING: '🏢',
-    APARTMENT: '🏠',
-    ROOM: '🚪',
-    FURNITURE: '🪑',
-    SHELF: '📚',
-    BOX: '📦',
-    DRAWER: '🗄️',
+  const filterTree = (nodes: ContainerTree[]): ContainerTree[] => {
+    return nodes
+        .map(node => ({
+          ...node,
+          children: filterTree(node.children),
+        }))
+        .filter(node => allowedParentTypes.includes(node.type) || node.children.length > 0);
   };
-  return icons[container.type] || '📁';
+
+  return filterTree(treeData.value);
+});
+
+// 🔥 Обработчик изменения родителя
+const onParentChange = (parentId: string | undefined) => {
+  form.value.parentId = parentId;
+  // Если выбран тип BUILDING и появился родитель — сбрасываем тип (но тип заблокирован, так что это не нужно)
 };
 
-const updateAvailableParents = () => {
-  // Фильтруем: подходят по типу, исключаем самого себя
-  let filtered = allContainers.value.filter(c =>
-      isValidParent(c) && c.id !== containerId
-  );
-
-  // Если текущий родитель не в списке — добавляем его
-  if (form.value.parentId) {
-    const parent = allContainers.value.find(c => c.id === form.value.parentId);
-    if (parent) {
-      const alreadyExists = filtered.some(c => c.id === parent.id);
-      if (!alreadyExists) {
-        filtered = [parent, ...filtered];
-      }
-    }
+// 🔥 Рекурсивная загрузка всех потомков
+const loadFullTree = async (node: any): Promise<any> => {
+  if (!node.id) return node;
+  try {
+    const childrenResp = await containerApi.getChildContainers(node.id);
+    node.children = await Promise.all(
+        childrenResp.data.map(async (c: any) => {
+          const child = {
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            children: [],
+          };
+          return await loadFullTree(child);
+        })
+    );
+    return node;
+  } catch (err) {
+    console.error(`Failed to load children for ${node.id}`, err);
+    return node;
   }
+};
 
-  availableParents.value = filtered;
+// 🔥 Загружаем дерево для выбора родителя
+const loadTreeData = async () => {
+  try {
+    const parentIdFromQuery = route.query.parentId as string;
+    if (parentIdFromQuery) {
+      const response = await containerApi.getContainerById(parentIdFromQuery);
+      const root = {
+        id: response.data.id,
+        name: response.data.name,
+        type: response.data.type,
+        children: [],
+      };
+      const fullRoot = await loadFullTree(root);
+      treeData.value = [fullRoot];
+    } else {
+      const response = await containerApi.getRootContainers();
+      treeData.value = await Promise.all(
+          response.data.map(async (c: any) => {
+            const root = {
+              id: c.id,
+              name: c.name,
+              type: c.type,
+              children: [],
+            };
+            return await loadFullTree(root);
+          })
+      );
+    }
+  } catch (err) {
+    console.error('Failed to load tree data', err);
+  }
 };
 
 const loadFormData = async () => {
@@ -207,10 +250,8 @@ const loadFormData = async () => {
     form.value.groupId = container.groupId || null;
     originalParentId.value = container.parentId || undefined;
 
-    // Загружаем все контейнеры для выбора родителя
-    const allResp = await containerApi.getAvailableForParent();
-    allContainers.value = allResp.data;
-    updateAvailableParents();
+    // Загружаем дерево
+    await loadTreeData();
 
     // Загружаем группы
     try {
@@ -248,7 +289,6 @@ const handleSubmit = async () => {
     await containerApi.updateContainer(containerId, payload);
     success.value = 'Изменения сохранены!';
 
-    // Через секунду переходим на страницу просмотра
     setTimeout(() => {
       router.push(`/containers/${containerId}`);
     }, 1000);
@@ -330,15 +370,6 @@ h2 {
   display: flex;
   gap: 10px;
   margin-top: 20px;
-}
-
-.parent-select option {
-  padding: 4px 8px;
-  font-size: 14px;
-}
-
-.parent-select option.is-child {
-  background-color: #f9f9f9;
 }
 
 .btn-primary {
