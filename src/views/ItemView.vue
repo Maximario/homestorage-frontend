@@ -60,10 +60,17 @@
           <span class="info-label">Описание</span>
           <span class="info-value">{{ item.description }}</span>
         </div>
+
+        <!-- 🔥 ОБНОВЛЁННЫЙ БЛОК С ФОТО -->
         <div v-if="item.photoUrl" class="info-item full-width">
           <span class="info-label">Фото</span>
           <div class="photo-container">
-            <img :src="item.photoUrl" alt="Фото вещи" class="item-photo" />
+            <img
+                :src="getFullPhotoUrl(item.photoUrl)"
+                alt="Фото вещи"
+                class="item-photo"
+                @error="handleImageError"
+            />
           </div>
         </div>
       </div>
@@ -88,6 +95,9 @@ const containerPath = ref<string>('');
 const loading = ref(true);
 const error = ref('');
 
+// 🔥 Базовый URL для API
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+
 const translateCategory = (category?: string) => {
   const map: Record<string, string> = {
     CLOTHES: '👕 Одежда',
@@ -107,6 +117,30 @@ const formatDate = (date: string) => {
   if (!date) return '';
   const d = new Date(date);
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+// 🔥 Формируем полный URL для фото
+const getFullPhotoUrl = (photoUrl: string) => {
+  if (!photoUrl) return '';
+  // Если это уже полный URL (начинается с http), возвращаем как есть
+  if (photoUrl.startsWith('http')) {
+    return photoUrl;
+  }
+  // Если это путь к эндпоинту (начинается с /api), добавляем базовый URL
+  if (photoUrl.startsWith('/api')) {
+    return API_BASE_URL + photoUrl.replace('/api/v1', '');
+  }
+  // Если это просто путь, формируем полный URL
+  return API_BASE_URL + '/items/' + itemId + '/photo';
+};
+
+// 🔥 Обработка ошибки загрузки фото
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  // Можно показать заглушку или скрыть блок
+  img.style.display = 'none';
+  // Или показать сообщение об ошибке
+  console.warn('Failed to load photo for item:', itemId);
 };
 
 const loadItem = async () => {

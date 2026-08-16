@@ -37,6 +37,16 @@ export const itemApi = {
         });
     },
 
+    getPhoto: (id: string) =>
+        apiClient.get(`/items/${id}/photo`, {
+            responseType: 'blob',
+        }),
+
+    getPhotoThumbnail: (id: string) =>
+        apiClient.get(`/items/${id}/photo/thumbnail`, {
+            responseType: 'blob',
+        }),
+
     deletePhoto: (id: string) =>
         apiClient.delete(`/items/${id}/photo`),
 

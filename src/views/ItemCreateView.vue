@@ -65,6 +65,35 @@
         />
       </div>
 
+      <div class="form-group">
+        <label>Фото вещи</label>
+        <div class="photo-upload">
+          <div v-if="photoPreview" class="photo-preview">
+            <img :src="photoPreview" alt="Фото вещи" class="photo-image" />
+            <button
+                type="button"
+                class="photo-remove"
+                @click="removePhoto"
+                title="Удалить фото"
+            >
+              ✕
+            </button>
+          </div>
+          <div v-else class="photo-placeholder">
+            <span class="photo-placeholder-icon">📷</span>
+            <span>Нажмите для загрузки фото</span>
+          </div>
+          <input
+              ref="fileInput"
+              type="file"
+              accept="image/*"
+              class="photo-input"
+              @change="handleFileSelect"
+          />
+        </div>
+        <small>Поддерживаются форматы JPG, PNG, WEBP. Максимальный размер 10 МБ.</small>
+      </div>
+
       <div class="form-actions">
         <button type="submit" :disabled="loading" class="btn-primary">
           {{ loading ? 'Создание...' : 'Создать вещь' }}
@@ -102,6 +131,53 @@ const form = ref<ItemRequest>({
   reminderNote: '',
 });
 
+const photoPreview = ref<string>('');
+const selectedFile = ref<File | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
+
+const handleFileSelect = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  if (input.files && input.files.length > 0) {
+    const file = input.files[0];
+
+    if (file.size > 10 * 1024 * 1024) {
+      error.value = 'Размер файла не должен превышать 10 МБ';
+      input.value = '';
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      error.value = 'Пожалуйста, выберите изображение';
+      input.value = '';
+      return;
+    }
+
+    selectedFile.value = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      photoPreview.value = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+const removePhoto = () => {
+  photoPreview.value = '';
+  selectedFile.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+};
+
+const uploadPhoto = async (id: string): Promise<void> => {
+  if (!selectedFile.value) return;
+  try {
+    await itemApi.uploadPhoto(id, selectedFile.value);
+  } catch (err) {
+    console.error('Failed to upload photo', err);
+  }
+};
+
 const handleSubmit = async () => {
   if (!form.value.name || !form.value.category) {
     error.value = 'Название и категория обязательны';
@@ -125,6 +201,12 @@ const handleSubmit = async () => {
     };
 
     const response = await itemApi.createItem(payload);
+
+    // Загружаем фото, если оно выбрано
+    if (selectedFile.value) {
+      await uploadPhoto(response.data.id);
+    }
+
     router.push(`/containers/${form.value.containerId}`);
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Ошибка создания вещи';
@@ -252,5 +334,82 @@ h2 {
   color: #d32f2f;
   margin-top: 12px;
   text-align: center;
+}
+
+/* 🔥 Стили для загрузки фото */
+.photo-upload {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  background: #fafafa;
+}
+
+.photo-upload:hover {
+  border-color: #1976d2;
+}
+
+.photo-preview {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.photo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.photo-remove:hover {
+  background: rgba(211, 47, 47, 0.9);
+}
+
+.photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #999;
+  font-size: 14px;
+}
+
+.photo-placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.photo-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 </style>
