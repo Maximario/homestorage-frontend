@@ -5,7 +5,9 @@ import ContainerView from '@/views/ContainerView.vue';
 import ContainersView from '@/views/ContainersView.vue';
 import ContainerCreateView from '@/views/ContainerCreateView.vue';
 import ContainerEditView from '@/views/ContainerEditView.vue';
-
+import ItemCreateView from '@/views/ItemCreateView.vue';
+import ItemView from '@/views/ItemView.vue';
+import ItemEditView from '@/views/ItemEditView.vue';
 
 const routes = [
     {path: '/login', component: LoginView},
@@ -19,6 +21,24 @@ const routes = [
         path: '/containers/:id/edit',
         name: 'ContainerEdit',
         component: ContainerEditView,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: '/items/create',
+        name: 'ItemCreate',
+        component: ItemCreateView,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: '/items/:id',
+        name: 'ItemView',
+        component: ItemView,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: '/items/:id/edit',
+        name: 'ItemEdit',
+        component: ItemEditView,
         meta: { requiresAuth: true },
     },
     {path: '/', redirect: '/containers'},

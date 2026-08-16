@@ -18,7 +18,7 @@ export interface Item {
 export interface ItemRequest {
     name: string;
     description?: string;
-    category: Item['category'];
+    category: Item['category'] | string;
     containerId: string;
     quantity?: number;
     reminderDate?: string;

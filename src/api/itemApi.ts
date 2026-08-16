@@ -2,31 +2,33 @@ import apiClient from './client';
 import type { Item, ItemRequest } from '@/types/item.types';
 
 export const itemApi = {
-    // Получить вещи по контейнеру
+    // ----- РџРћР›РЈР§Р•РќРР• -----
     getItemsByContainer: (containerId: string) =>
         apiClient.get<Item[]>(`/items/container/${containerId}`),
 
-    // Получить вещь по ID
     getItemById: (id: string) =>
         apiClient.get<Item>(`/items/${id}`),
 
-    // Создать вещь
+    searchItems: (query: string) =>
+        apiClient.get<Item[]>(`/items/search?query=${query}`),
+
+    getActiveReminders: () =>
+        apiClient.get<Item[]>('/items/reminders/active'),
+
+    // ----- РЎРћР—Р”РђРќРР• / РћР‘РќРћР’Р›Р•РќРР• / РЈР”РђР›Р•РќРР• -----
     createItem: (data: ItemRequest) =>
         apiClient.post<Item>('/items', data),
 
-    // Обновить вещь
     updateItem: (id: string, data: Partial<ItemRequest>) =>
         apiClient.put<Item>(`/items/${id}`, data),
 
-    // Переместить вещь
     moveItem: (id: string, containerId: string) =>
         apiClient.patch<Item>(`/items/${id}/move`, { containerId }),
 
-    // Удалить вещь
     deleteItem: (id: string) =>
         apiClient.delete(`/items/${id}`),
 
-    // Загрузить фото
+    // ----- Р¤РћРўРћ -----
     uploadPhoto: (id: string, file: File) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -34,4 +36,11 @@ export const itemApi = {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
     },
+
+    deletePhoto: (id: string) =>
+        apiClient.delete(`/items/${id}/photo`),
+
+    // ----- РќРђРџРћРњРРќРђРќРРЇ -----
+    completeReminder: (id: string) =>
+        apiClient.patch<Item>(`/items/${id}/reminder/complete`),
 };

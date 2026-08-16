@@ -1,0 +1,299 @@
+<template>
+  <div class="item-edit">
+    <h2>✏️ Редактирование вещи</h2>
+    <form @submit.prevent="handleSubmit" class="form">
+      <div class="form-group">
+        <label>Название *</label>
+        <input
+            v-model="form.name"
+            type="text"
+            required
+            placeholder="Например: Зимняя куртка, Молоток, Книга"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Категория *</label>
+        <select v-model="form.category" required>
+          <option value="">Выберите категорию...</option>
+          <option value="CLOTHES">👕 Одежда</option>
+          <option value="TOOLS">🔧 Инструменты</option>
+          <option value="BOOKS">📚 Книги</option>
+          <option value="DOCUMENTS">📄 Документы</option>
+          <option value="ELECTRONICS">💻 Электроника</option>
+          <option value="FOOD">🍎 Продукты</option>
+          <option value="MEDICINES">💊 Лекарства</option>
+          <option value="SPORTS">⚽ Спорт</option>
+          <option value="OTHER">📦 Другое</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Описание</label>
+        <textarea
+            v-model="form.description"
+            placeholder="Дополнительная информация о вещи..."
+            rows="3"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Количество</label>
+        <input
+            v-model.number="form.quantity"
+            type="number"
+            min="1"
+            placeholder="1"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Дата напоминания</label>
+        <input
+            v-model="form.reminderDate"
+            type="date"
+        />
+        <small>Например, срок годности или дата, когда нужно забрать вещь</small>
+      </div>
+
+      <div class="form-group">
+        <label>Заметка для напоминания</label>
+        <input
+            v-model="form.reminderNote"
+            type="text"
+            placeholder="Например: Проверить срок годности"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Переместить в другое место</label>
+        <select v-model="form.containerId" required>
+          <option value="">Выберите место...</option>
+          <option
+              v-for="container in availableContainers"
+              :key="container.id"
+              :value="container.id"
+          >
+            {{ container.name }}
+          </option>
+        </select>
+        <small>Вы можете переместить вещь в другое место хранения</small>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" :disabled="loading" class="btn-primary">
+          {{ loading ? 'Сохранение...' : 'Сохранить изменения' }}
+        </button>
+        <button type="button" @click="goBack" class="btn-secondary">
+          Отмена
+        </button>
+      </div>
+
+      <p v-if="error" class="error">{{ error }}</p>
+      <p v-if="success" class="success">{{ success }}</p>
+    </form>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { itemApi } from '@/api/itemApi';
+import { containerApi } from '@/api/containerApi';
+import type { ItemRequest } from '@/types/item.types';
+import type { Container } from '@/types/container.types';
+
+const route = useRoute();
+const router = useRouter();
+const itemId = route.params.id as string;
+
+const loading = ref(false);
+const error = ref('');
+const success = ref('');
+
+const form = ref<ItemRequest>({
+  name: '',
+  category: '',
+  description: '',
+  containerId: '',
+  quantity: 1,
+  reminderDate: '',
+  reminderNote: '',
+});
+
+const availableContainers = ref<Container[]>([]);
+
+const loadItem = async () => {
+  try {
+    const response = await itemApi.getItemById(itemId);
+    const item = response.data;
+
+    form.value.name = item.name;
+    form.value.category = item.category;
+    form.value.description = item.description || '';
+    form.value.containerId = item.containerId;
+    form.value.quantity = item.quantity;
+    form.value.reminderDate = item.reminderDate || '';
+    form.value.reminderNote = item.reminderNote || '';
+
+    // Загружаем доступные контейнеры
+    const containersResp = await containerApi.getAvailableForParent();
+    availableContainers.value = containersResp.data;
+  } catch (err) {
+    console.error('Failed to load item', err);
+    error.value = 'Не удалось загрузить данные вещи';
+  }
+};
+
+const handleSubmit = async () => {
+  if (!form.value.name || !form.value.category || !form.value.containerId) {
+    error.value = 'Название, категория и место хранения обязательны';
+    return;
+  }
+
+  loading.value = true;
+  error.value = '';
+  success.value = '';
+
+  try {
+    const payload = {
+      ...form.value,
+      quantity: form.value.quantity || 1,
+      reminderDate: form.value.reminderDate || undefined,
+      reminderNote: form.value.reminderNote || undefined,
+    };
+
+    await itemApi.updateItem(itemId, payload);
+    success.value = 'Изменения сохранены!';
+
+    setTimeout(() => {
+      router.push(`/items/${itemId}`);
+    }, 1000);
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'Ошибка обновления вещи';
+  } finally {
+    loading.value = false;
+  }
+};
+
+const goBack = () => {
+  router.push(`/items/${itemId}`);
+};
+
+onMounted(() => {
+  loadItem();
+});
+</script>
+
+<style scoped>
+.item-edit {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 30px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  margin-bottom: 20px;
+  color: #1976d2;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.form-group small {
+  display: block;
+  margin-top: 5px;
+  color: #666;
+  font-size: 12px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn-primary {
+  padding: 12px 24px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #1565c0;
+}
+
+.btn-primary:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 12px 24px;
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #d0d0d0;
+}
+
+.error {
+  color: #d32f2f;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.success {
+  color: #4caf50;
+  margin-top: 12px;
+  text-align: center;
+}
+</style>
