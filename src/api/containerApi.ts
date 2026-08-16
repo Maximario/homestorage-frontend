@@ -26,6 +26,10 @@ export const containerApi = {
     getContainerPath: (id: string) =>
         apiClient.get<string>(`/containers/${id}/path`),
 
+    // Обновить контейнер
+    updateContainer: (id: string, data: ContainerRequest) =>
+        apiClient.put<Container>(`/containers/${id}`, data),
+
     // Переместить место хранения
     moveContainer: (id: string, newParentId: string | null) =>
         apiClient.patch<Container>(`/containers/${id}/move`, { parentId: newParentId }),

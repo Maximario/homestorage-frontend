@@ -4,6 +4,7 @@ import RegisterView from '@/views/RegisterView.vue';
 import ContainerView from '@/views/ContainerView.vue';
 import ContainersView from '@/views/ContainersView.vue';
 import ContainerCreateView from '@/views/ContainerCreateView.vue';
+import ContainerEditView from '@/views/ContainerEditView.vue';
 
 
 const routes = [
@@ -13,6 +14,12 @@ const routes = [
     {path: '/containers/create', name: 'ContainerCreate', component: ContainerCreateView, meta: {requiresAuth: true}},
     {
         path: '/containers/:id', name: 'ContainerView', component: ContainerView, meta: {requiresAuth: true},
+    },
+    {
+        path: '/containers/:id/edit',
+        name: 'ContainerEdit',
+        component: ContainerEditView,
+        meta: { requiresAuth: true },
     },
     {path: '/', redirect: '/containers'},
 ];
