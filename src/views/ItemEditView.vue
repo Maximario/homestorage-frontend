@@ -67,16 +67,12 @@
 
       <div class="form-group">
         <label>Переместить в другое место</label>
-        <select v-model="form.containerId" required>
-          <option value="">Выберите место...</option>
-          <option
-              v-for="container in availableContainers"
-              :key="container.id"
-              :value="container.id"
-          >
-            {{ container.name }}
-          </option>
-        </select>
+        <TreeSelect
+            v-model="form.containerId"
+            :tree-data="treeData"
+            :valid-child-types="[]"
+            placeholder="Выберите место хранения..."
+        />
         <small>Вы можете переместить вещь в другое место хранения</small>
       </div>
 
@@ -100,8 +96,8 @@ import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { itemApi } from '@/api/itemApi';
 import { containerApi } from '@/api/containerApi';
+import TreeSelect from '@/components/TreeSelect.vue';
 import type { ItemRequest } from '@/types/item.types';
-import type { Container } from '@/types/container.types';
 
 const route = useRoute();
 const router = useRouter();
@@ -121,7 +117,50 @@ const form = ref<ItemRequest>({
   reminderNote: '',
 });
 
-const availableContainers = ref<Container[]>([]);
+const treeData = ref<any[]>([]);
+
+// 🔥 Рекурсивная загрузка всех потомков
+const loadFullTree = async (node: any): Promise<any> => {
+  if (!node.id) return node;
+  try {
+    const childrenResp = await containerApi.getChildContainers(node.id);
+    node.children = await Promise.all(
+        childrenResp.data.map(async (c: any) => {
+          const child = {
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            children: [],
+          };
+          return await loadFullTree(child);
+        })
+    );
+    return node;
+  } catch (err) {
+    console.error(`Failed to load children for ${node.id}`, err);
+    return node;
+  }
+};
+
+// 🔥 Загружаем дерево контейнеров
+const loadTreeData = async () => {
+  try {
+    const response = await containerApi.getRootContainers();
+    treeData.value = await Promise.all(
+        response.data.map(async (c: any) => {
+          const root = {
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            children: [],
+          };
+          return await loadFullTree(root);
+        })
+    );
+  } catch (err) {
+    console.error('Failed to load tree data', err);
+  }
+};
 
 const loadItem = async () => {
   try {
@@ -136,9 +175,8 @@ const loadItem = async () => {
     form.value.reminderDate = item.reminderDate || '';
     form.value.reminderNote = item.reminderNote || '';
 
-    // Загружаем доступные контейнеры
-    const containersResp = await containerApi.getAvailableForParent();
-    availableContainers.value = containersResp.data;
+    // Загружаем дерево контейнеров
+    await loadTreeData();
   } catch (err) {
     console.error('Failed to load item', err);
     error.value = 'Не удалось загрузить данные вещи';
