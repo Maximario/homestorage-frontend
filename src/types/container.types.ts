@@ -7,6 +7,8 @@ export interface Container {
     groupId?: string | null;
     accessLevel: 'PRIVATE' | 'GROUP_READ' | 'GROUP_WRITE';
     qrCode?: string;
+    latitude?: number | null;
+    longitude?: number | null;
     createdAt: string;
     updatedAt: string;
 }

@@ -1,6 +1,7 @@
 import {createRouter, createWebHistory} from 'vue-router';
 import LoginView from '@/views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
+import DashboardView from '@/views/DashboardView.vue';
 import ContainerView from '@/views/ContainerView.vue';
 import ContainersView from '@/views/ContainersView.vue';
 import ContainerCreateView from '@/views/ContainerCreateView.vue';
@@ -12,6 +13,8 @@ import ItemEditView from '@/views/ItemEditView.vue';
 const routes = [
     {path: '/login', component: LoginView},
     {path: '/register', component: RegisterView},
+    {path: '/', component: DashboardView, meta: {requiresAuth: true}},
+    {path: '/dashboard', component: DashboardView, meta: {requiresAuth: true}},
     {path: '/containers', component: ContainersView, meta: {requiresAuth: true}},
     {path: '/containers/create', name: 'ContainerCreate', component: ContainerCreateView, meta: {requiresAuth: true}},
     {
@@ -21,27 +24,26 @@ const routes = [
         path: '/containers/:id/edit',
         name: 'ContainerEdit',
         component: ContainerEditView,
-        meta: { requiresAuth: true },
+        meta: {requiresAuth: true},
     },
     {
         path: '/items/create',
         name: 'ItemCreate',
         component: ItemCreateView,
-        meta: { requiresAuth: true },
+        meta: {requiresAuth: true},
     },
     {
         path: '/items/:id',
         name: 'ItemView',
         component: ItemView,
-        meta: { requiresAuth: true },
+        meta: {requiresAuth: true},
     },
     {
         path: '/items/:id/edit',
         name: 'ItemEdit',
         component: ItemEditView,
-        meta: { requiresAuth: true },
+        meta: {requiresAuth: true},
     },
-    {path: '/', redirect: '/containers'},
 ];
 
 const router = createRouter({

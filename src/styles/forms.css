@@ -1,0 +1,75 @@
+/* ---------- Location Picker ---------- */
+.location-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.location-picker__map {
+    width: 100%;
+    height: 300px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+}
+
+.location-picker__map .location-map {
+    width: 100%;
+    height: 100%;
+}
+
+.location-picker__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.location-picker__controls .coord-inputs {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+}
+
+.location-picker__controls .coord-input {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 120px;
+}
+
+.location-picker__controls .coord-input label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+}
+
+.location-picker__controls .coord-input input {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    width: 100%;
+}
+
+.location-picker__controls .coord-input input:focus {
+    outline: none;
+    border-color: #1976d2;
+    box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.location-picker__controls .btn-secondary {
+    padding: 6px 16px;
+    background: #e0e0e0;
+    color: #333;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.location-picker__controls .btn-secondary:hover {
+    background: #d0d0d0;
+}

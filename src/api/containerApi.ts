@@ -45,6 +45,9 @@ export const containerApi = {
     // Удалить контейнер
     deleteContainer: (id: string) =>
         apiClient.delete(`/containers/${id}`),
+
+    getContainersForMap: () =>
+        apiClient.get<Container[]>('/containers/map'),
 };
 
 // 🔥 Тип для дерева контейнеров

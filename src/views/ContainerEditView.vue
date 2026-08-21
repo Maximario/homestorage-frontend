@@ -86,6 +86,13 @@
         <small>Если у вас нет групп — создайте их в разделе "Группы"</small>
       </div>
 
+      <!-- Блок с координатами -->
+      <div class="form-group">
+        <label>📍 Местоположение на карте</label>
+        <LocationPicker v-model="form.coordinates" />
+        <small>Выберите точку на карте или введите координаты вручную</small>
+      </div>
+
       <div class="form-actions">
         <button type="submit" :disabled="loading" class="btn-primary">
           {{ loading ? 'Сохранение...' : 'Сохранить изменения' }}
@@ -107,6 +114,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { containerApi, type ContainerTree } from '@/api/containerApi';
 import { groupApi } from '@/api/groupApi';
 import TreeSelect from '@/components/TreeSelect.vue';
+import LocationPicker from '@/components/LocationPicker.vue';
 import type { Container, ContainerRequest } from '@/types/container.types';
 import type { Group } from '@/types/group.types';
 
@@ -125,6 +133,10 @@ const form = ref<ContainerRequest & { type: string }>({
   parentId: undefined,
   accessLevel: 'PRIVATE',
   groupId: null,
+  coordinates: {
+    latitude: null,
+    longitude: null,
+  },
 });
 
 const treeData = ref<ContainerTree[]>([]);
@@ -250,6 +262,11 @@ const loadFormData = async () => {
     form.value.groupId = container.groupId || null;
     originalParentId.value = container.parentId || undefined;
 
+    form.value.coordinates = {
+      latitude: container.latitude || null,
+      longitude: container.longitude || null,
+    };
+
     // Загружаем дерево
     await loadTreeData();
 
@@ -284,6 +301,8 @@ const handleSubmit = async () => {
       parentId: form.value.parentId,
       accessLevel: form.value.accessLevel as Container['accessLevel'],
       groupId: form.value.accessLevel !== 'PRIVATE' ? form.value.groupId : undefined,
+      latitude: form.value.coordinates?.latitude || null,
+      longitude: form.value.coordinates?.longitude || null,
     };
 
     await containerApi.updateContainer(containerId, payload);

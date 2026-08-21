@@ -97,6 +97,13 @@
         <small>Если у вас нет групп — создайте их в разделе "Группы"</small>
       </div>
 
+      <!-- Блок с координатами -->
+      <div class="form-group">
+        <label>📍 Местоположение на карте</label>
+        <LocationPicker v-model="form.coordinates" />
+        <small>Выберите точку на карте или введите координаты вручную</small>
+      </div>
+
       <div class="form-actions">
         <button type="submit" :disabled="loading" class="btn-primary">
           {{ loading ? 'Создание...' : 'Создать место' }}
@@ -117,8 +124,10 @@ import { useRouter, useRoute } from 'vue-router';
 import { containerApi, type ContainerTree } from '@/api/containerApi';
 import { groupApi } from '@/api/groupApi';
 import TreeSelect from '@/components/TreeSelect.vue';
+import LocationPicker from '@/components/LocationPicker.vue';
 import type { Container, ContainerRequest } from '@/types/container.types';
 import type { Group } from '@/types/group.types';
+import {getTypeLabel} from '@/utils/translations';
 
 const router = useRouter();
 const route = useRoute();
@@ -133,6 +142,10 @@ const form = ref<ContainerRequest & { type: string }>({
   parentId: undefined,
   accessLevel: 'PRIVATE',
   groupId: null,
+  coordinates: {
+    latitude: null,
+    longitude: null,
+  },
 });
 
 const treeData = ref<ContainerTree[]>([]);
@@ -203,20 +216,6 @@ const filteredTreeData = computed(() => {
 
   return filterTree(treeData.value);
 });
-
-// 🔥 Возвращает метку для типа
-const getTypeLabel = (type: string): string => {
-  const map: Record<string, string> = {
-    BUILDING: '🏢 Здание',
-    APARTMENT: '🏠 Квартира',
-    ROOM: '🚪 Комната',
-    FURNITURE: '🪑 Мебель',
-    SHELF: '📚 Полка',
-    BOX: '📦 Коробка',
-    DRAWER: '🗄️ Ящик',
-  };
-  return map[type] || type;
-};
 
 // 🔥 Обработчик изменения типа
 const onTypeChange = () => {
@@ -338,6 +337,8 @@ const handleSubmit = async () => {
       parentId: form.value.parentId,
       accessLevel: form.value.accessLevel as Container['accessLevel'],
       groupId: form.value.accessLevel !== 'PRIVATE' ? form.value.groupId : undefined,
+      latitude: form.value.coordinates?.latitude || null,
+      longitude: form.value.coordinates?.longitude || null,
     };
 
     await containerApi.createContainer(payload);
